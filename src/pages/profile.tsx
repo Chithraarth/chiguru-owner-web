@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { apiFetch, apiMutate } from "@/lib/api";
+import { apiFetch, apiMutate, apiUrl } from "@/lib/api";
 import { useEstate } from "@/lib/use-estate";
 import { useT } from "@/lib/i18n";
 
@@ -61,7 +61,7 @@ export default function ProfilePage() {
 
   // ── Farms linked to the signed-in account ──
   const { data: myFarms, refetch: refetchFarms } = useQuery<LinkedFarm[]>({
-    queryKey: ["me-farms", user?.id],
+    queryKey: ["me-farms", user?.uid],
     queryFn: () => apiFetch("/me/farms"),
     enabled: !!user,
   });
@@ -75,7 +75,7 @@ export default function ProfilePage() {
     setLinking(true);
     setLinkError(null);
     try {
-      const res = await fetch(`${basePath}/api/me/link-farm`, {
+      const res = await fetch(apiUrl("/me/link-farm"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
