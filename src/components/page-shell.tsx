@@ -88,7 +88,7 @@ export function PageShell({ title, children, back, onBack, action, leftAction, r
   };
 
   return (
-    <div className="flex flex-col min-h-[100dvh] bg-background">
+    <div className="flex flex-col h-full bg-background">
       <OfflineBanner />
 
       {/* Header */}
@@ -111,22 +111,23 @@ export function PageShell({ title, children, back, onBack, action, leftAction, r
                 <ChevronLeft className="h-5 w-5" />
               </button>
             )}
-            {/* Top-left menu on root pages (no back button): drawer on mobile,
-                persistent-sidebar toggle on wide/web screens. */}
+            {/* Drawer menu on mobile — only on root pages (no back button),
+                since sub-pages there are reached via the drawer itself. */}
             {!back && !onBack && (
-              <>
-                <div className="lg:hidden">
-                  <AppMenu />
-                </div>
-                <button
-                  onClick={toggleSidebar}
-                  aria-label="Toggle sidebar"
-                  className={cn("hidden lg:inline-flex p-1.5 -ml-1.5 rounded-lg transition-colors", accent.hover)}
-                >
-                  <Menu className="h-6 w-6" />
-                </button>
-              </>
+              <div className="lg:hidden">
+                <AppMenu />
+              </div>
             )}
+            {/* Persistent-sidebar toggle on wide/web screens — available on
+                every page, not just root ones, so it can be collapsed/expanded
+                no matter where you are in the app. */}
+            <button
+              onClick={toggleSidebar}
+              aria-label="Toggle sidebar"
+              className={cn("hidden lg:inline-flex p-1.5 -ml-1.5 rounded-lg transition-colors", accent.hover)}
+            >
+              <Menu className="h-6 w-6" />
+            </button>
             {leftAction}
             {!centerTitle && (
               <h1 className="text-lg font-bold tracking-tight truncate">{title}</h1>

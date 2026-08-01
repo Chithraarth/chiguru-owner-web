@@ -157,9 +157,9 @@ function Gated() {
     <ErrorBoundary>
       <DeviceGate>
         <SidebarProvider>
-          <div className="flex min-h-dvh">
+          <div className="flex h-dvh overflow-hidden">
             <Sidebar />
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 h-full overflow-hidden">
               <Router />
             </div>
           </div>

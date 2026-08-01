@@ -166,7 +166,7 @@ export default function Onboarding() {
   );
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen h-full overflow-y-auto bg-background flex flex-col">
       {/* Header */}
       <div className="bg-primary text-primary-foreground px-6 pt-10 pb-6">
         <h1 className="text-3xl font-extrabold tracking-tight">{t("app.name")}</h1>
