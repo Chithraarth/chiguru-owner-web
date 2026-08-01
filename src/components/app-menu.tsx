@@ -64,7 +64,7 @@ export function AppMenu() {
             onClick={() => setOpen(false)}
           />
           {/* Drawer */}
-          <div className="absolute right-0 top-0 bottom-0 w-[300px] max-w-[85vw] bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+          <div className="absolute left-0 top-0 bottom-0 w-[300px] max-w-[85vw] bg-white shadow-2xl flex flex-col animate-in slide-in-from-left duration-200">
             {/* Account header */}
             <div className="bg-primary text-primary-foreground p-4 pt-5">
               <div className="flex items-start justify-between">

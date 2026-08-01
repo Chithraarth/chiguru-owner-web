@@ -4,9 +4,9 @@ import { Link } from "wouter";
 import {
   Leaf, UserCheck, Camera,
   MapPin, Plus, BotMessageSquare, ScanLine, ShoppingCart,
-  Stethoscope, Handshake,
+  Stethoscope, Handshake, LineChart, ArrowUpRight,
   RefreshCw, ChevronDown, ChevronUp, BookOpen, Store,
-  Tractor, Wrench, Users, ChevronRight, Smartphone, Check,
+  Tractor, Wrench, Users, ChevronRight, Check,
 } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { GuidedTour } from "@/components/guided-tour";
@@ -63,41 +63,62 @@ function fmt(n: number) {
   return fmtMoney(n, 0);
 }
 
-const PRIMARY = [
-  {
-    href: "/work-groups", icon: UserCheck, key: "home.attendance", chip: "bg-[#E9E6FB] text-[#6C5DD3]",
-    desc: "Create a work group, mark daily attendance and wages.", linkLabel: "New work group",
-  },
-  {
-    href: "/daily-update", icon: Camera, key: "home.workUpdates", chip: "bg-[#D5F1EE] text-[#1F9E92]",
-    desc: "Photo and note log of what happened in the field today.", linkLabel: "Post an update",
-  },
-  {
-    href: "/farm-accounts", icon: BookOpen, key: "home.farmAccounts", chip: "bg-[#F3DBF5] text-[#B45BC7]",
-    desc: "Income, expenses and per-crop cost in one ledger.", linkLabel: "Open ledger",
-  },
-];
-
-const MORE = [
-  { href: "/workers", icon: Handshake, key: "more.farmManager", color: "bg-primary/10 text-primary" },
-  { href: "/shop", icon: ShoppingCart, key: "more.shop", color: "bg-primary/10 text-primary" },
-  { href: "/agri-doctor", icon: Stethoscope, key: "more.agriDoctor", color: "bg-primary/10 text-primary" },
-  { href: "/disease", icon: ScanLine, key: "more.diseaseDetect", color: "bg-primary/10 text-primary" },
-  { href: "/agri-ai", icon: BotMessageSquare, key: "more.agriAdvisor", color: "bg-primary/10 text-primary" },
-  { href: "/crops", icon: Leaf, key: "more.myFarms", color: "bg-primary/10 text-primary" },
-  { href: "/sync-log", icon: RefreshCw, key: "more.syncLog", color: "bg-slate-100 text-slate-700" },
+const DAILY_WORK = [
+  { href: "/work-groups", icon: UserCheck, chip: "bg-[#E9E6FB] text-[#6C5DD3]", title: "Work Attendance", desc: "Attendance & wages" },
+  { href: "/daily-update", icon: Camera, chip: "bg-[#D5F1EE] text-[#1F9E92]", title: "Work Updates", desc: "Field photo log" },
+  { href: "/farm-accounts", icon: BookOpen, chip: "bg-[#F3DBF5] text-[#B45BC7]", title: "Farm Accounts", desc: "Income & expenses" },
+  { href: "/crops", icon: Leaf, chip: "bg-primary/10 text-primary", title: "My Farms", desc: "Estates & plots" },
 ];
 
 const ADVISORY = [
-  { href: "/agri-doctor", icon: Stethoscope, label: "Agri Doctor" },
-  { href: "/disease", icon: ScanLine, label: "Disease Check" },
-  { href: "/agri-ai", icon: BotMessageSquare, label: "Agri Advisor" },
+  { href: "/agri-doctor", icon: Stethoscope, chip: "bg-[#E4E7FB] text-[#5B6ED6]", title: "Agri Doctor", desc: "Ask a specialist" },
+  { href: "/disease", icon: ScanLine, chip: "bg-[#FBE4E4] text-[#D66B6B]", title: "Disease Check", desc: "Scan a leaf" },
+  { href: "/agri-ai", icon: BotMessageSquare, chip: "bg-[#EDE4FB] text-[#8B5BD6]", title: "Agri Advisor", desc: "Daily guidance" },
+  { href: "/reports", icon: LineChart, chip: "bg-[#E4EEFB] text-[#5B8CD6]", title: "Reports", desc: "Season summaries" },
 ];
+
+const MARKET_SETUP = [
+  { href: "/workers", icon: Handshake, chip: "bg-[#E4F2FB] text-[#4FA8D8]", title: "Hire", desc: "Labour & machines" },
+  { href: "/shop", icon: ShoppingCart, chip: "bg-[#FBEEDD] text-[#D69A4F]", title: "Shop", desc: "Inputs & tools" },
+  { href: "/marketplace", icon: Store, chip: "bg-[#E0F5E9] text-[#4FAE72]", title: "Market", desc: "Ads & mandi rates" },
+  { href: "/sync-log", icon: RefreshCw, chip: "bg-[#EAEAEA] text-[#6B6B6B]", title: "Sync & Settings", desc: "Data & account" },
+];
+
+interface ToolItem {
+  href: string;
+  icon: typeof Leaf;
+  chip: string;
+  title: string;
+  desc: string;
+}
+
+function ToolSection({ title, items }: { title: string; items: ToolItem[] }) {
+  return (
+    <div>
+      <h3 className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">{title}</h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {items.map(({ href, icon: Icon, chip, title: itemTitle, desc }) => (
+          <Link key={href} href={href}>
+            <div className="relative bg-card rounded-2xl p-4 h-full shadow-sm border border-border/60 flex flex-col gap-3 active:scale-95 transition-transform">
+              <ArrowUpRight className="absolute top-3 right-3 h-4 w-4 text-muted-foreground/50" />
+              <div className={`h-11 w-11 rounded-full flex items-center justify-center ${chip}`}>
+                <Icon className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-base font-bold leading-tight block text-foreground">{itemTitle}</span>
+                <span className="text-sm text-muted-foreground leading-snug block mt-1">{desc}</span>
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const { t } = useT();
   const { estates, activeEstateId, activeEstate, setActiveEstate } = useEstate();
-  const [showMore, setShowMore] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [showEstates, setShowEstates] = useState(false);
 
@@ -154,30 +175,19 @@ export default function Dashboard() {
       title={t("app.name")}
       centerTitle
       rightAction={
-        <>
-          <Link href="/mandi">
-            <button
-              aria-label="Market Prices"
-              className="flex flex-col items-center justify-center px-1.5 py-0.5 rounded-lg hover:bg-foreground/5 active:bg-foreground/5 transition-colors"
-            >
-              <Store className="h-5 w-5" />
-              <span className="text-[9px] font-semibold leading-none mt-0.5">Market</span>
-            </button>
-          </Link>
-          <Link href="/manager-devices">
-            <button
-              aria-label="Manage Device"
-              className="flex flex-col items-center justify-center px-1.5 py-0.5 rounded-lg hover:bg-foreground/5 active:bg-foreground/5 transition-colors"
-            >
-              <Smartphone className="h-5 w-5" />
-              <span className="text-[9px] font-semibold leading-none mt-0.5">Device</span>
-            </button>
-          </Link>
-        </>
+        <Link href="/mandi">
+          <button
+            aria-label="Market Prices"
+            className="flex flex-col items-center justify-center px-1.5 py-0.5 rounded-lg hover:bg-foreground/5 active:bg-foreground/5 transition-colors"
+          >
+            <Store className="h-5 w-5" />
+            <span className="text-[9px] font-semibold leading-none mt-0.5">Market</span>
+          </button>
+        </Link>
       }
     >
-      <div className="p-4 lg:p-6 grid gap-4 lg:grid-cols-[1fr_340px] lg:items-start">
-        {/* Main column */}
+      <div className="p-4 lg:p-6 grid gap-4 lg:grid-cols-[340px_1fr] lg:items-start">
+        {/* Left column: farm identity/setup + recent ads */}
         <div className="space-y-4 min-w-0">
           {/* Farm identity / setup */}
           {profile ? (
@@ -242,7 +252,7 @@ export default function Dashboard() {
               )}
             </div>
           ) : (
-            <div className="grid sm:grid-cols-2 gap-4 items-stretch">
+            <div className="space-y-4">
               <div className="bg-primary/5 border-2 border-dashed border-primary/20 rounded-2xl p-5 space-y-3">
                 <div>
                   <Plus className="h-8 w-8 text-primary mb-2" />
@@ -300,60 +310,6 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Modules */}
-          <div>
-            <h3 className="text-sm font-semibold text-gray-500 mb-2 uppercase tracking-wide">Modules</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {PRIMARY.map(({ href, icon: Icon, key, chip, desc, linkLabel }) => (
-                <Link key={href} href={href}>
-                  <div className="bg-card rounded-2xl p-4 h-full shadow-sm border border-border/60 flex flex-col gap-3 active:scale-95 transition-transform">
-                    <div className={`h-11 w-11 rounded-full flex items-center justify-center ${chip}`}>
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <span className="text-base font-bold leading-tight block text-foreground">{t(key)}</span>
-                      <span className="text-sm text-muted-foreground leading-snug block mt-1">{desc}</span>
-                    </div>
-                    <span className="text-sm font-semibold text-primary mt-auto pt-1">{linkLabel} →</span>
-                  </div>
-                </Link>
-              ))}
-              <button
-                onClick={() => setShowMore((s) => !s)}
-                className="bg-card rounded-2xl p-4 h-full shadow-sm border border-border/60 flex flex-col gap-3 active:scale-95 transition-transform text-left"
-              >
-                <div className="h-11 w-11 rounded-full flex items-center justify-center bg-[#E2E8FA] text-[#4F63D2]">
-                  {showMore ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                </div>
-                <div className="min-w-0">
-                  <span className="text-base font-bold leading-tight block text-foreground">{t("home.more")}</span>
-                  <span className="text-sm text-muted-foreground leading-snug block mt-1">
-                    Agri Doctor, disease detection, reports and settings.
-                  </span>
-                </div>
-                <span className="text-sm font-semibold text-primary mt-auto pt-1">Browse all →</span>
-              </button>
-            </div>
-
-            {showMore && (
-              <div className="grid grid-cols-3 gap-3 mt-3">
-                {MORE.map(({ href, icon: Icon, key, color }) => (
-                  <Link key={href} href={href}>
-                    <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex flex-col items-center gap-2 active:scale-95 transition-transform">
-                      <div className={`rounded-xl p-2.5 ${color}`}>
-                        <Icon className="h-6 w-6" />
-                      </div>
-                      <span className="text-xs font-medium text-gray-700 text-center leading-tight">{t(key)}</span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Sidebar — reflows below the main column on narrow screens */}
-        <div className="space-y-4 min-w-0">
           {/* Recent ads posted by people across the community boards */}
           <div className="bg-card rounded-2xl border border-border/60 shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
@@ -409,36 +365,13 @@ export default function Dashboard() {
               </div>
             </Link>
           </div>
+        </div>
 
-          {/* Estate plan upsell */}
-          <div className="bg-primary rounded-2xl p-4 text-primary-foreground">
-            <h4 className="font-bold">Estate plan</h4>
-            <p className="text-sm text-primary-foreground/80 mt-1.5 leading-relaxed">
-              An active subscription is needed to create your estate. Paid plans add unlimited work groups, farm accounts, and manager seats.
-            </p>
-            <Link href="/subscription">
-              <div className="w-full mt-3 bg-white/15 hover:bg-white/20 rounded-xl h-10 flex items-center justify-center text-sm font-semibold">
-                View subscription plans
-              </div>
-            </Link>
-          </div>
-
-          {/* Advisory — compact shortcuts to the AI/consult tools */}
-          <div className="bg-card rounded-2xl border border-border/60 shadow-sm p-4">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Advisory</h3>
-            <div className="grid grid-cols-3 gap-2">
-              {ADVISORY.map(({ href, icon: Icon, label }) => (
-                <Link key={href} href={href}>
-                  <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex flex-col items-center gap-2 active:scale-95 transition-transform">
-                    <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
-                      <Icon className="h-5 w-5 text-primary" />
-                    </div>
-                    <span className="text-xs font-medium text-gray-700 text-center leading-tight">{label}</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
+        {/* Right column: grouped tool sections */}
+        <div className="space-y-5 min-w-0">
+          <ToolSection title="Daily Work" items={DAILY_WORK} />
+          <ToolSection title="Advisory" items={ADVISORY} />
+          <ToolSection title="Market & Setup" items={MARKET_SETUP} />
         </div>
       </div>
 

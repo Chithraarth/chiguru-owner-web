@@ -95,10 +95,13 @@ export function PageShell({ title, children, back, onBack, action, leftAction, r
       <header className={cn(accent.header, "text-foreground sticky top-0 z-20 border-b border-border/60")}>
         <div className="relative flex items-center justify-between px-4 h-14">
           <div className="flex items-center gap-3">
+            {/* Back button — mobile only. On wide/web screens the persistent
+                sidebar + always-visible toggle already cover navigation, so
+                a back arrow next to it is redundant clutter. */}
             {back && (
               <button
                 onClick={goBack}
-                className={cn("p-1 -ml-1 rounded-lg transition-colors", accent.hover)}
+                className={cn("lg:hidden p-1 -ml-1 rounded-lg transition-colors", accent.hover)}
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
@@ -106,7 +109,7 @@ export function PageShell({ title, children, back, onBack, action, leftAction, r
             {!back && onBack && (
               <button
                 onClick={onBack}
-                className={cn("p-1 -ml-1 rounded-lg transition-colors", accent.hover)}
+                className={cn("lg:hidden p-1 -ml-1 rounded-lg transition-colors", accent.hover)}
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
@@ -147,7 +150,11 @@ export function PageShell({ title, children, back, onBack, action, leftAction, r
             </div>
           )}
           <div className="flex items-center gap-3">
-            <SyncIndicator />
+            {/* On small screens this collides with the centered title (see
+                centerTitle above) — only show it once there's room. */}
+            <div className="hidden sm:block">
+              <SyncIndicator />
+            </div>
             {action}
             {rightAction}
           </div>

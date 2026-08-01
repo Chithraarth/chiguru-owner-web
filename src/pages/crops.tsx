@@ -384,10 +384,11 @@ export default function Crops() {
         </div>
       )}
 
-      {/* Estate add/edit sheet */}
+      {/* Estate add/edit sheet — bottom sheet on mobile, right-side panel on
+          wide/web screens (lg+). */}
       {showEstateForm && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end">
-          <div className="bg-white w-full rounded-t-2xl p-5 pb-8 max-h-[85vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end lg:items-stretch lg:justify-end">
+          <div className="bg-white w-full rounded-t-2xl p-5 pb-8 max-h-[85vh] overflow-y-auto lg:w-[440px] lg:max-w-[90vw] lg:rounded-none lg:rounded-l-2xl lg:max-h-none lg:h-full">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-semibold text-lg">
                 {editEstate ? t("estate.editEstate") : t("estate.addEstate")}
