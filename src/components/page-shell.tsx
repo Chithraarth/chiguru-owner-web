@@ -154,12 +154,13 @@ export function PageShell({ title, children, back, onBack, action, leftAction, r
       </header>
 
       {/* Content */}
-      <main className="flex-1 overflow-y-auto pb-20">
+      <main className="flex-1 overflow-y-auto pb-20 lg:pb-0">
         {children}
       </main>
 
-      {/* Bottom Nav */}
-      <nav className="fixed bottom-4 left-4 right-4 bg-[#231F3A] rounded-[2rem] shadow-xl z-20 overflow-hidden">
+      {/* Bottom Nav — mobile/small screens only; wide/web screens use the
+          persistent sidebar instead (see components/sidebar.tsx). */}
+      <nav className="lg:hidden fixed bottom-4 left-4 right-4 bg-[#231F3A] rounded-[2rem] shadow-xl z-20 overflow-hidden">
         <div className="flex w-full px-2 py-2">
           {NAV_ITEMS.map(({ href, icon: Icon, key }) => {
             const active = location === href || (href !== "/" && location.startsWith(href));
