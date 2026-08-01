@@ -38,6 +38,12 @@ const navigateFallback = `${baseNoSlash}/index.html`;
 const apiUrlPattern = new RegExp(
   `^${baseNoSlash.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/api/`,
 );
+// This app's service worker is registered at scope "/", so without this it
+// would intercept *any* same-origin navigation — including /manager/, which
+// is a separate app (chiguru-manager-web) served by the same nginx — and
+// wrongly serve this app's own cached shell instead of letting the request
+// reach the network.
+const managerUrlPattern = /^\/manager\//;
 
 export default defineConfig({
   base: basePath,
@@ -51,7 +57,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         navigateFallback,
-        navigateFallbackDenylist: [apiUrlPattern],
+        navigateFallbackDenylist: [apiUrlPattern, managerUrlPattern],
         cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
