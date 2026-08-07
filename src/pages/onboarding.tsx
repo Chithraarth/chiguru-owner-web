@@ -72,8 +72,13 @@ export default function Onboarding() {
   const farmNameVal = watch("farmName");
 
   const createProfile = useMutation({
-    mutationFn: (data: Record<string, unknown>) => apiMutate("POST", "/farm/profile", data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["farm-profile"] }),
+    mutationFn: (data: Record<string, unknown>) => apiMutate("POST", "/estates", data),
+    onSuccess: (created: unknown) => {
+      qc.invalidateQueries({ queryKey: ["estates"] });
+      qc.invalidateQueries({ queryKey: ["farm-profile"] });
+      const id = (created as { id?: number } | undefined)?.id;
+      if (id != null) setActiveEstate(id);
+    },
   });
 
   const createCrop = useMutation({
