@@ -1,41 +1,52 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Crown, Check, Loader2, Lock, Share2, PartyPopper, MapPinned, Smartphone, Sprout, Landmark, Receipt } from "lucide-react";
+import { Crown, Check, Loader2, Lock, Share2, PartyPopper, Users, Receipt, AlertTriangle } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { apiFetch, apiMutate } from "@/lib/api";
+import { apiFetch, apiMutate, ApiError } from "@/lib/api";
 import { fmtMoney } from "@/lib/currency";
 
-interface Plan {
-  id: string;
+declare global {
+  interface Window {
+    Razorpay?: new (options: RazorpayOptions) => { open: () => void };
+  }
+}
+interface RazorpayOptions {
+  key: string;
+  subscription_id: string;
   name: string;
-  amount: number;
-  billingCycle: string;
-  tagline: string;
-  maxEstates: number | null;
-  maxManagerDevices: number;
+  description?: string;
+  prefill?: { name?: string; email?: string; contact?: string };
+  theme?: { color?: string };
+  handler: (response: { razorpay_payment_id: string; razorpay_subscription_id: string; razorpay_signature: string }) => void;
+  modal?: { ondismiss?: () => void };
 }
 
-interface AddonPrice {
-  amount: number;
+interface Plan {
+  id: number;
+  name: string;
+  description: string | null;
+  price: number;
+  currency: string;
+  billingPeriod: string;
+  managerLimit: number;
 }
 
 interface CurrentSubscription {
-  id: number;
-  planName: string;
-  billingCycle: string;
-  amount: string;
-  currency: string;
   status: string;
+  platform: string;
+  provider: string;
   startDate: string | null;
-  renewalDate: string | null;
-  managerSeats: number;
-  extraEstates: number;
+  expiryDate: string | null;
+  autoRenew: boolean;
+  cancelledAt: string | null;
+  plan: { id: number; name: string; managerLimit: number; price: number } | null;
 }
 
-interface SubscriptionStatus {
+interface SubscriptionMe {
   subscription: CurrentSubscription | null;
+  entitlement: { managerLimit: number; managersUsed: number; remainingManagers: number };
   sharePlatforms: string | null;
   shareRewardClaimedAt: string | null;
   freeMonthPending: boolean;
@@ -46,15 +57,20 @@ interface Payment {
   amount: string;
   currency: string;
   paymentStatus: string;
-  paymentMethod: string | null;
-  invoiceNumber: string | null;
   createdAt: string;
 }
+
+type FlowState =
+  | "idle"
+  | "creating"
+  | "opening_checkout"
+  | "verifying"
+  | "failed"
+  | "cancelled_by_user";
 
 const SHARE_TARGET = 3;
 const SHARE_MESSAGE = "I'm running my farm on Chiguru — attendance, expenses, harvest and Agri Doctor, all in one app. Try it:";
 const SHARE_LINK = "https://thechiguru.com";
-
 interface ShareOption {
   id: string;
   label: string;
@@ -68,33 +84,49 @@ const SHARE_OPTIONS: ShareOption[] = [
   { id: "other", label: "Instagram / more", url: null },
 ];
 
-function PlanIcon({ plan }: { plan: Plan }) {
-  if (plan.id === "farmer") return <Sprout className="h-5 w-5 text-primary" />;
-  if (plan.id === "planter") return <Smartphone className="h-5 w-5 text-emerald-600" />;
-  return <Landmark className="h-5 w-5 text-amber-600" />;
-}
-
 function fmtDate(iso?: string | null) {
   if (!iso) return "";
   return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
+/** Loads checkout.js once, lazily — only this page needs it. */
+function useRazorpayScript() {
+  const [ready, setReady] = useState(!!window.Razorpay);
+  useEffect(() => {
+    if (window.Razorpay) {
+      setReady(true);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => setReady(true);
+    script.onerror = () => setReady(false);
+    document.body.appendChild(script);
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
+  return ready;
+}
+
 export default function Subscription() {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const [busyPlan, setBusyPlan] = useState<string | null>(null);
-  const [busyAddon, setBusyAddon] = useState<"estate" | "device" | null>(null);
+  const razorpayReady = useRazorpayScript();
+  const [flow, setFlow] = useState<FlowState>("idle");
+  const [busyPlanId, setBusyPlanId] = useState<number | null>(null);
   const [busyShare, setBusyShare] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
 
-  const { data: plansData } = useQuery<{ plans: Plan[]; estateAddon: AddonPrice; managerDeviceAddon: AddonPrice }>({
+  const { data: plansData, isLoading: plansLoading } = useQuery<{ plans: Plan[] }>({
     queryKey: ["subscription-plans"],
-    queryFn: () => apiFetch("/subscription/plans"),
+    queryFn: () => apiFetch("/subscriptions/plans"),
   });
 
-  const { data: status, refetch: refetchStatus } = useQuery<SubscriptionStatus>({
-    queryKey: ["subscription"],
-    queryFn: () => apiFetch("/subscription"),
+  const { data: me, isLoading: meLoading, refetch: refetchMe } = useQuery<SubscriptionMe>({
+    queryKey: ["subscription-me"],
+    queryFn: () => apiFetch("/subscriptions/me"),
   });
 
   const { data: payments = [] } = useQuery<Payment[]>({
@@ -103,63 +135,83 @@ export default function Subscription() {
   });
 
   const invalidateAll = () => {
-    qc.invalidateQueries({ queryKey: ["subscription"] });
+    qc.invalidateQueries({ queryKey: ["subscription-me"] });
     qc.invalidateQueries({ queryKey: ["payments"] });
   };
 
-  async function choosePlan(planId: string) {
-    setBusyPlan(planId);
+  async function subscribe(plan: Plan) {
+    if (!razorpayReady || !window.Razorpay) {
+      toast({ title: "Payment page didn't load", description: "Check your connection and try again.", variant: "destructive" });
+      return;
+    }
+    setBusyPlanId(plan.id);
+    setFlow("creating");
     try {
-      const res = await apiMutate<{ url: string }>("POST", "/subscription/checkout", { planId });
-      if (res?.url) window.location.href = res.url;
-      else toast({ title: "Could not start checkout — try again", variant: "destructive" });
-    } catch {
-      toast({ title: "Could not start checkout — try again", variant: "destructive" });
+      const created = await apiMutate<{ subscriptionId: string; keyId: string }>("POST", "/subscriptions/razorpay/create", { planId: plan.id });
+      if (!created) throw new Error("offline");
+
+      setFlow("opening_checkout");
+      const razorpay = new window.Razorpay({
+        key: created.keyId,
+        subscription_id: created.subscriptionId,
+        name: "Chiguru",
+        description: `${plan.name} plan`,
+        theme: { color: "#2E2A54" },
+        handler: (response) => {
+          setFlow("verifying");
+          apiMutate("POST", "/subscriptions/razorpay/verify", response)
+            .then((res) => {
+              if (!res) throw new Error("offline");
+              setFlow("idle");
+              invalidateAll();
+              toast({ title: "Subscription active", description: `Your ${plan.name} plan is now active.` });
+            })
+            .catch((err: unknown) => {
+              setFlow("failed");
+              const msg = err instanceof ApiError ? (err.body?.message ?? "Please contact support if this keeps happening.") : "Please contact support if this keeps happening.";
+              toast({ title: "Couldn't verify your payment", description: msg, variant: "destructive" });
+            });
+        },
+        modal: {
+          ondismiss: () => setFlow("cancelled_by_user"),
+        },
+      });
+      razorpay.open();
+    } catch (err) {
+      setFlow("failed");
+      const msg = err instanceof ApiError ? (err.body?.message ?? "Network error — please try again.") : "Network error — please try again.";
+      toast({ title: "Couldn't start checkout", description: msg, variant: "destructive" });
     } finally {
-      setBusyPlan(null);
+      setBusyPlanId(null);
     }
   }
 
-  async function buyAddon(kind: "estate" | "device") {
-    setBusyAddon(kind);
-    try {
-      const path = kind === "estate" ? "/subscription/estate-addon/checkout" : "/subscription/device-addon/checkout";
-      const res = await apiMutate<{ url: string }>("POST", path);
-      if (res?.url) window.location.href = res.url;
-      else toast({ title: "Could not start checkout — try again", variant: "destructive" });
-    } catch {
-      toast({ title: "Could not start checkout — try again", variant: "destructive" });
-    } finally {
-      setBusyAddon(null);
-    }
-  }
-
-  async function cancelAutoRenew() {
+  async function cancelSubscription() {
     setCancelling(true);
     try {
-      await apiMutate("POST", "/subscription/cancel-autorenew");
-      toast({ title: "Auto-renew cancelled — your plan stays active until the current period ends" });
-      refetchStatus();
-    } catch {
-      toast({ title: "Could not cancel auto-renew — try again", variant: "destructive" });
+      await apiMutate("POST", "/subscriptions/cancel");
+      toast({ title: "Subscription cancelled", description: "Your plan stays active until the current billing period ends." });
+      refetchMe();
+    } catch (err) {
+      const msg = err instanceof ApiError ? (err.body?.message ?? "Please try again.") : "Please try again.";
+      toast({ title: "Couldn't cancel", description: msg, variant: "destructive" });
     } finally {
       setCancelling(false);
     }
   }
 
   async function share(opt: ShareOption) {
-    const link = SHARE_LINK;
     if (opt.url) {
-      window.open(opt.url(SHARE_MESSAGE, link), "_blank", "noopener");
+      window.open(opt.url(SHARE_MESSAGE, SHARE_LINK), "_blank", "noopener");
     } else if (navigator.share) {
       try {
-        await navigator.share({ title: "Chiguru", text: SHARE_MESSAGE, url: link });
+        await navigator.share({ title: "Chiguru", text: SHARE_MESSAGE, url: SHARE_LINK });
       } catch {
         return;
       }
     } else {
       try {
-        await navigator.clipboard.writeText(`${SHARE_MESSAGE} ${link}`);
+        await navigator.clipboard.writeText(`${SHARE_MESSAGE} ${SHARE_LINK}`);
         toast({ title: "Link copied", description: "Paste it wherever you'd like to share." });
       } catch {
         /* ignore */
@@ -167,7 +219,7 @@ export default function Subscription() {
     }
     setBusyShare(opt.id);
     try {
-      const res = await apiMutate<{ rewardGranted?: boolean }>("POST", "/subscription/share", { platform: opt.id });
+      const res = await apiMutate<{ rewardGranted?: boolean }>("POST", "/subscriptions/share", { platform: opt.id });
       invalidateAll();
       if (res?.rewardGranted) {
         toast({ title: "1 month free!", description: "Thanks for spreading the word about Chiguru." });
@@ -180,239 +232,185 @@ export default function Subscription() {
   }
 
   const plans = plansData?.plans ?? [];
-  const current = status?.subscription ?? null;
-  const isActive = current?.status === "active";
-  const shared = new Set((status?.sharePlatforms ?? "").split(",").filter(Boolean));
-  const shareClaimed = !!status?.shareRewardClaimedAt;
+  const sub = me?.subscription ?? null;
+  const isActive = sub?.status === "ACTIVE" || sub?.status === "GRACE_PERIOD";
+  const shared = new Set((me?.sharePlatforms ?? "").split(",").filter(Boolean));
+  const shareClaimed = !!me?.shareRewardClaimedAt;
   const shareCount = Math.min(shared.size, SHARE_TARGET);
-  const freeMonthPending = !!status?.freeMonthPending;
+  const freeMonthPending = !!me?.freeMonthPending;
+
+  const busy = flow === "creating" || flow === "opening_checkout" || flow === "verifying";
 
   return (
     <PageShell title="Plans & pricing" back="/">
       <div className="p-4 space-y-4 w-full max-w-5xl mx-auto pb-10">
-        {/* Status banner */}
-        {isActive ? (
-          <section className="bg-primary text-primary-foreground rounded-2xl p-4 shadow-sm">
-            <div className="flex items-center gap-2">
-              <Crown className="h-5 w-5" />
-              <h2 className="font-bold">{current!.planName} plan active</h2>
-            </div>
-            <p className="text-primary-foreground/80 text-sm mt-1">
-              Your farm is fully active — everything is unlocked, including selling on Chiguru.
-            </p>
-            {current!.renewalDate && (
-              <p className="text-primary-foreground/60 text-xs mt-2">Auto-pay on — renews automatically on {fmtDate(current!.renewalDate)}</p>
-            )}
-            <Button
-              onClick={cancelAutoRenew}
-              disabled={cancelling}
-              variant="outline"
-              className="mt-3 w-full bg-white/10 border-white/30 text-white hover:bg-white/20 rounded-xl h-10"
-            >
-              {cancelling ? <Loader2 className="w-4 h-4 animate-spin" /> : "Cancel auto-renew"}
-            </Button>
-          </section>
+        {plansLoading || meLoading ? (
+          <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
         ) : (
-          <section className="bg-primary text-primary-foreground rounded-2xl p-4 shadow-sm">
-            <div className="flex items-center gap-2">
-              <Lock className="h-5 w-5" />
-              <h2 className="font-bold">Subscribe to unlock</h2>
-            </div>
-            <p className="text-primary-foreground/80 text-sm mt-1">
-              Pick a plan below to run your whole farm — attendance, expenses, harvest, Agri Doctor and selling on Chiguru.
-            </p>
-          </section>
-        )}
-
-        {/* Share on 3 apps → 1 month free */}
-        <section className="rounded-2xl p-4 border-2 border-emerald-200 bg-emerald-50/60">
-          <div className="flex items-center gap-2">
-            {shareClaimed ? <PartyPopper className="h-5 w-5 text-emerald-600" /> : <Share2 className="h-5 w-5 text-emerald-600" />}
-            <h2 className="font-bold text-gray-900">{shareClaimed ? "Free month claimed!" : "Share on 3 apps → 1 month FREE"}</h2>
-          </div>
-          {shareClaimed ? (
-            <p className="text-sm text-gray-600 mt-1">
-              Thanks for sharing Chiguru{current?.renewalDate ? ` — your plan is active till ${fmtDate(current.renewalDate)}` : freeMonthPending ? ". Your free month will apply the moment you pick a plan below." : "."}
-            </p>
-          ) : (
-            <>
-              <p className="text-sm text-gray-600 mt-1">
-                Post about Chiguru on any 3 different apps — WhatsApp, Facebook, Instagram, X, TikTok or others — and get 1 month of your plan free.
-              </p>
-              <div className="mt-2 flex items-center gap-1.5">
-                {Array.from({ length: SHARE_TARGET }).map((_, i) => (
-                  <span key={i} className={`h-2.5 w-8 rounded-full ${i < shareCount ? "bg-emerald-500" : "bg-emerald-200"}`} />
-                ))}
-                <span className="ml-1 text-xs font-semibold text-emerald-700">{shareCount}/{SHARE_TARGET} shared</span>
+          <>
+            {/* Explicit flow-state banner — never claims "Active" before the backend confirms it */}
+            {flow === "verifying" && (
+              <div className="rounded-2xl p-3 bg-amber-50 border border-amber-200 text-amber-800 text-sm flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" /> Payment received. Verifying your subscription...
               </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {SHARE_OPTIONS.map((opt) => {
-                  const done = shared.has(opt.id);
-                  return (
-                    <button
-                      key={opt.id}
-                      onClick={() => share(opt)}
-                      disabled={busyShare === opt.id}
-                      className={`px-3 h-10 rounded-xl text-sm font-semibold border ${done ? "bg-emerald-600 text-white border-emerald-600" : "bg-white text-gray-800 border-gray-300 active:bg-gray-50"}`}
-                    >
-                      {done ? "✓ " : ""}{opt.label}
-                    </button>
-                  );
-                })}
+            )}
+            {flow === "failed" && (
+              <div className="rounded-2xl p-3 bg-red-50 border border-red-200 text-red-700 text-sm flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" /> Something went wrong verifying your payment. If money was deducted, it will be refunded automatically if the subscription didn't activate.
               </div>
-            </>
-          )}
-        </section>
+            )}
+            {flow === "cancelled_by_user" && (
+              <div className="rounded-2xl p-3 bg-gray-50 border border-gray-200 text-gray-600 text-sm">
+                Checkout closed — no payment was made.
+              </div>
+            )}
 
-        {/* Honest promise */}
-        <div className="bg-primary/5 rounded-2xl p-4 border border-primary/10 text-center">
-          <p className="text-base font-bold text-primary">Simple, honest prices</p>
-          <p className="text-sm text-primary/80 mt-1 leading-relaxed">
-            Every plan runs your whole farm — everything included. Just pick the size that fits: Farmer, Planter or Company Estate.
-          </p>
-        </div>
+            {/* Status banner */}
+            {isActive ? (
+              <section className="bg-primary text-primary-foreground rounded-2xl p-4 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <Crown className="h-5 w-5" />
+                  <h2 className="font-bold">{sub!.plan?.name} plan active</h2>
+                </div>
+                <p className="text-primary-foreground/80 text-sm mt-1">Your farm is fully active — everything is unlocked.</p>
+                {sub!.expiryDate && (
+                  <p className="text-primary-foreground/60 text-xs mt-2">
+                    {sub!.autoRenew ? `Auto-pay on — renews on ${fmtDate(sub!.expiryDate)}` : `Access continues until ${fmtDate(sub!.expiryDate)}`}
+                  </p>
+                )}
+                {sub!.autoRenew && (
+                  <Button
+                    onClick={cancelSubscription}
+                    disabled={cancelling}
+                    variant="outline"
+                    className="mt-3 w-full bg-white/10 border-white/30 text-white hover:bg-white/20 rounded-xl h-10"
+                  >
+                    {cancelling ? <Loader2 className="w-4 h-4 animate-spin" /> : "Cancel subscription"}
+                  </Button>
+                )}
+                <div className="mt-3 pt-3 border-t border-white/20 flex items-center gap-2 text-sm">
+                  <Users className="h-4 w-4" />
+                  <span>
+                    {me?.entitlement.managersUsed}/{me?.entitlement.managerLimit} managers used
+                    {" · "}
+                    {me?.entitlement.remainingManagers} remaining
+                  </span>
+                </div>
+              </section>
+            ) : (
+              <section className="bg-primary text-primary-foreground rounded-2xl p-4 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <Lock className="h-5 w-5" />
+                  <h2 className="font-bold">Subscribe to unlock</h2>
+                </div>
+                <p className="text-primary-foreground/80 text-sm mt-1">Pick a plan below to run your whole farm and add managers.</p>
+              </section>
+            )}
 
-        {/* Plan cards */}
-        <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 -mx-4 px-4 md:mx-0 md:px-0 md:grid md:grid-cols-3 md:overflow-visible">
-          {plans.map((plan) => {
-            const isCurrent = isActive && current?.planName === plan.name;
-            const isFarmer = plan.id === "farmer";
-            const iconBg = isFarmer ? "bg-primary/10" : plan.id === "planter" ? "bg-emerald-50" : "bg-amber-50";
-            const features = [
-              "Attendance + AI count",
-              "Advances + loans",
-              "Profit / loss",
-              "Agri Doctor",
-              "Sell + works offline",
-              plan.maxEstates == null ? "Unlimited estates" : `${plan.maxEstates} estate${plan.maxEstates > 1 ? "s" : ""} included`,
-              `${plan.maxManagerDevices} manager device${plan.maxManagerDevices > 1 ? "s" : ""} included`,
-            ];
-            return (
-              <div
-                key={plan.id}
-                className={`snap-center shrink-0 w-[80%] max-w-[340px] md:max-w-none md:w-auto flex flex-col rounded-2xl p-4 border-2 ${isCurrent ? "border-primary bg-primary/5" : isFarmer ? "border-primary bg-white shadow-md" : "border-gray-200 bg-white shadow-sm"}`}
-              >
-                <span className={`self-start text-[10px] font-bold uppercase tracking-wide rounded-full px-2.5 py-1 ${isCurrent || isFarmer ? "bg-primary text-primary-foreground" : "bg-gray-100 text-gray-600"}`}>
-                  {isCurrent ? "Current" : isFarmer ? "Best value" : plan.id === "planter" ? "For plantations" : "For companies"}
-                </span>
-                <div className="mt-3 flex items-center gap-2.5">
-                  <div className={`h-10 w-10 rounded-xl ${iconBg} flex items-center justify-center`}><PlanIcon plan={plan} /></div>
-                  <div>
-                    <p className="text-base font-bold text-gray-900">{plan.name}</p>
-                    <p className="text-xs text-gray-500">{plan.tagline}</p>
+            {/* Share on 3 apps → 1 month free */}
+            <section className="rounded-2xl p-4 border-2 border-emerald-200 bg-emerald-50/60">
+              <div className="flex items-center gap-2">
+                {shareClaimed ? <PartyPopper className="h-5 w-5 text-emerald-600" /> : <Share2 className="h-5 w-5 text-emerald-600" />}
+                <h2 className="font-bold text-gray-900">{shareClaimed ? "Free month claimed!" : "Share on 3 apps → 1 month FREE"}</h2>
+              </div>
+              {shareClaimed ? (
+                <p className="text-sm text-gray-600 mt-1">
+                  Thanks for sharing Chiguru{isActive ? "." : freeMonthPending ? " — your free month applies the moment you pick a plan below." : "."}
+                </p>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Post about Chiguru on any 3 different apps and get 1 month free (applied to your first plan if you haven't subscribed yet).
+                  </p>
+                  <div className="mt-2 flex items-center gap-1.5">
+                    {Array.from({ length: SHARE_TARGET }).map((_, i) => (
+                      <span key={i} className={`h-2.5 w-8 rounded-full ${i < shareCount ? "bg-emerald-500" : "bg-emerald-200"}`} />
+                    ))}
+                    <span className="ml-1 text-xs font-semibold text-emerald-700">{shareCount}/{SHARE_TARGET} shared</span>
                   </div>
-                </div>
-                <p className="mt-3 text-3xl font-bold text-gray-900">{fmtMoney(plan.amount)}</p>
-                <p className="text-sm text-gray-500">per month</p>
-                <ul className="mt-3 space-y-1.5 flex-1">
-                  {features.map((f) => (
-                    <li key={f} className="flex items-start gap-2 text-sm text-gray-700">
-                      <Check className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Button
-                  className="w-full h-11 mt-3 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold rounded-xl"
-                  disabled={busyPlan === plan.id || isCurrent}
-                  onClick={() => choosePlan(plan.id)}
-                >
-                  {isCurrent ? "Current plan" : busyPlan === plan.id ? <Loader2 className="h-5 w-5 animate-spin" /> : "Choose"}
-                </Button>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Add-ons */}
-        <div className="space-y-3">
-          <p className="text-base font-bold text-gray-900">Add-ons — grow beyond your plan</p>
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="bg-white rounded-2xl p-4 border-2 border-gray-200 shadow-sm flex flex-col">
-              <div className="flex items-center gap-2.5">
-                <div className="h-10 w-10 rounded-xl bg-emerald-50 flex items-center justify-center"><MapPinned className="h-5 w-5 text-emerald-600" /></div>
-                <div>
-                  <p className="text-base font-bold text-gray-900">Extra estate add-on</p>
-                  <p className="text-xs text-gray-500">Add one more estate on top of your plan</p>
-                </div>
-              </div>
-              <p className="mt-3 text-2xl font-bold text-gray-900">{fmtMoney(plansData?.estateAddon.amount ?? 199)}<span className="text-sm font-normal text-gray-500"> per month, each</span></p>
-              {(current?.extraEstates ?? 0) > 0 && (
-                <p className="text-xs text-emerald-700 font-semibold mt-1">You have {current?.extraEstates} extra estate add-on{(current?.extraEstates ?? 0) > 1 ? "s" : ""}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {SHARE_OPTIONS.map((opt) => {
+                      const done = shared.has(opt.id);
+                      return (
+                        <button
+                          key={opt.id}
+                          onClick={() => share(opt)}
+                          disabled={busyShare === opt.id}
+                          className={`px-3 h-10 rounded-xl text-sm font-semibold border ${done ? "bg-emerald-600 text-white border-emerald-600" : "bg-white text-gray-800 border-gray-300 active:bg-gray-50"}`}
+                        >
+                          {done ? "✓ " : ""}{opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
               )}
-              <div className="flex-1" />
-              <p className="mt-3 text-xs text-gray-500">Renews automatically each month until cancelled.</p>
-              <Button
-                className="w-full h-11 mt-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl"
-                disabled={busyAddon === "estate"}
-                onClick={() => buyAddon("estate")}
-              >
-                {busyAddon === "estate" ? <Loader2 className="h-4 w-4 animate-spin" /> : "+ Add an estate"}
-              </Button>
-            </div>
-            <div className="bg-white rounded-2xl p-4 border-2 border-gray-200 shadow-sm flex flex-col">
-              <div className="flex items-center gap-2.5">
-                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center"><Smartphone className="h-5 w-5 text-primary" /></div>
-                <div>
-                  <p className="text-base font-bold text-gray-900">Extra manager device add-on</p>
-                  <p className="text-xs text-gray-500">Add one more manager phone on top of your plan</p>
-                </div>
-              </div>
-              <p className="mt-3 text-2xl font-bold text-gray-900">{fmtMoney(plansData?.managerDeviceAddon.amount ?? 199)}<span className="text-sm font-normal text-gray-500"> per month, each</span></p>
-              <div className="flex-1" />
-              <p className="mt-3 text-xs text-gray-500">Renews automatically each month until cancelled.</p>
-              <Button
-                className="w-full h-11 mt-3 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold rounded-xl"
-                disabled={busyAddon === "device"}
-                onClick={() => buyAddon("device")}
-              >
-                {busyAddon === "device" ? <Loader2 className="h-4 w-4 animate-spin" /> : "+ Add a device"}
-              </Button>
-            </div>
-          </div>
-        </div>
+            </section>
 
-        {/* Why we charge */}
-        <div className="bg-white rounded-2xl p-4 border border-gray-100 space-y-2.5">
-          <p className="text-base font-bold text-gray-900">Why do we charge this money?</p>
-          <p className="text-sm text-gray-700 leading-relaxed">
-            Your plan runs your whole farm: attendance with AI face recognition, employee pay and advances, expenses, harvest, profit & loss, Agri Doctor, selling on Chiguru — and it all works offline.
-          </p>
-          <p className="text-sm text-gray-700 leading-relaxed">
-            The AI features cost us real money. Our technology partners charge us for every photo the AI checks — every face marked in attendance and every crop photo Agri Doctor looks at. Your subscription pays those bills.
-          </p>
-          <p className="text-sm text-gray-700 leading-relaxed">
-            We make little to no profit from this. Chiguru exists to help farmers and planters improve their farms — better records, better growth, better yield. Farming builds so many lives, and we are here to help it grow.
-          </p>
-        </div>
+            {/* Plans — DB-driven, nothing hardcoded */}
+            <section className="space-y-2.5">
+              <h3 className="font-semibold text-gray-700 text-sm px-1">Plans</h3>
+              {plans.map((plan) => {
+                const isCurrent = isActive && sub?.plan?.id === plan.id;
+                return (
+                  <div key={plan.id} className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-bold text-gray-800">{plan.name}</p>
+                        {plan.description && <p className="text-xs text-gray-500 mt-0.5">{plan.description}</p>}
+                        <p className="text-sm text-gray-500 mt-1">{fmtMoney(plan.price)}/{plan.billingPeriod === "monthly" ? "month" : plan.billingPeriod}</p>
+                      </div>
+                      <Button
+                        onClick={() => subscribe(plan)}
+                        disabled={busy || isCurrent}
+                        className="rounded-xl h-10 bg-primary hover:bg-primary/90 text-primary-foreground px-4"
+                      >
+                        {busyPlanId === plan.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : isCurrent ? (
+                          <span className="flex items-center gap-1"><Check className="w-4 h-4" /> Current</span>
+                        ) : (
+                          "Subscribe"
+                        )}
+                      </Button>
+                    </div>
+                    <p className="mt-2 text-xs text-gray-500">
+                      {plan.managerLimit} manager{plan.managerLimit > 1 ? "s" : ""} included
+                    </p>
+                  </div>
+                );
+              })}
+            </section>
 
-        {/* Payment history */}
-        <section className="space-y-2">
-          <h3 className="font-semibold text-gray-700 text-sm px-1 flex items-center gap-1.5">
-            <Receipt className="w-4 h-4" /> Payment History
-          </h3>
-          {payments.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-gray-100 p-6 text-center text-sm text-gray-400">
-              No payments yet.
-            </div>
-          ) : (
-            payments.map((p) => (
-              <div key={p.id} className="bg-white rounded-2xl border border-gray-100 p-3.5 flex items-center justify-between shadow-sm">
-                <div>
-                  <p className="text-sm font-semibold text-gray-800">{fmtMoney(Number(p.amount))}</p>
-                  <p className="text-xs text-gray-400">{new Date(p.createdAt).toLocaleDateString("en-IN")}</p>
+            {/* Payment history */}
+            <section className="space-y-2">
+              <h3 className="font-semibold text-gray-700 text-sm px-1 flex items-center gap-1.5">
+                <Receipt className="w-4 h-4" /> Payment History
+              </h3>
+              {payments.length === 0 ? (
+                <div className="bg-white rounded-2xl border border-gray-100 p-6 text-center text-sm text-gray-400">
+                  No payments yet.
                 </div>
-                <span
-                  className={`text-xs font-semibold px-2 py-1 rounded-full capitalize ${
-                    p.paymentStatus === "succeeded" ? "bg-primary/10 text-primary" : "bg-red-50 text-red-600"
-                  }`}
-                >
-                  {p.paymentStatus}
-                </span>
-              </div>
-            ))
-          )}
-        </section>
+              ) : (
+                payments.map((p) => (
+                  <div key={p.id} className="bg-white rounded-2xl border border-gray-100 p-3.5 flex items-center justify-between shadow-sm">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800">{fmtMoney(Number(p.amount))}</p>
+                      <p className="text-xs text-gray-400">{new Date(p.createdAt).toLocaleDateString("en-IN")}</p>
+                    </div>
+                    <span
+                      className={`text-xs font-semibold px-2 py-1 rounded-full capitalize ${
+                        p.paymentStatus === "succeeded" ? "bg-primary/10 text-primary" : "bg-red-50 text-red-600"
+                      }`}
+                    >
+                      {p.paymentStatus}
+                    </span>
+                  </div>
+                ))
+              )}
+            </section>
+          </>
+        )}
       </div>
     </PageShell>
   );
