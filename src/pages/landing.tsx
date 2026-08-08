@@ -292,21 +292,74 @@ const LANDING_HTML = String.raw`
   <section class="reveal" data-reveal>
     <div class="wrap">
       <h2 class="center-h2">Farmers who use Chiguru</h2>
-      <div class="testi-row">
-        <div class="testi-card" data-reveal-item>
-          <div class="testi-stars">★★★★★</div>
-          <div class="testi-quote">"Wage disputes stopped completely once workers could see their own attendance."</div>
-          <div class="testi-who"><span class="testi-avatar" style="background:#6E56CF;">R</span><div><div class="testi-name">Ravi Kumar</div><div class="testi-role">Coffee grower, Chikkamagaluru</div></div></div>
+    </div>
+    <div class="marquee-wrap">
+      <div class="marquee-row">
+        <div class="marquee-track" id="marqueeTrack1">
+          <div class="testi-card testi-card-marquee">
+            <div class="testi-stars">★★★★★</div>
+            <div class="testi-quote">"Wage disputes stopped completely once workers could see their own attendance."</div>
+            <div class="testi-who"><span class="testi-avatar" style="background:#6E56CF;">R</span><div><div class="testi-name">Ravi Kumar</div><div class="testi-role">Coffee grower, Chikkamagaluru</div></div></div>
+          </div>
+          <div class="testi-card testi-card-marquee">
+            <div class="testi-stars">★★★★★</div>
+            <div class="testi-quote">"I check my farm's accounts from my phone even when I am travelling."</div>
+            <div class="testi-who"><span class="testi-avatar" style="background:#22C55E;">L</span><div><div class="testi-name">Lakshmi Devi</div><div class="testi-role">Areca farmer, Shivamogga</div></div></div>
+          </div>
+          <div class="testi-card testi-card-marquee">
+            <div class="testi-stars">★★★★☆</div>
+            <div class="testi-quote">"The AI told me my leaf disease in seconds. I sprayed the right medicine and saved my crop."</div>
+            <div class="testi-who"><span class="testi-avatar" style="background:#C9A227;">M</span><div><div class="testi-name">Manjunath</div><div class="testi-role">Pepper farmer, Kodagu</div></div></div>
+          </div>
+          <div class="testi-card testi-card-marquee" aria-hidden="true">
+            <div class="testi-stars">★★★★★</div>
+            <div class="testi-quote">"Wage disputes stopped completely once workers could see their own attendance."</div>
+            <div class="testi-who"><span class="testi-avatar" style="background:#6E56CF;">R</span><div><div class="testi-name">Ravi Kumar</div><div class="testi-role">Coffee grower, Chikkamagaluru</div></div></div>
+          </div>
+          <div class="testi-card testi-card-marquee" aria-hidden="true">
+            <div class="testi-stars">★★★★★</div>
+            <div class="testi-quote">"I check my farm's accounts from my phone even when I am travelling."</div>
+            <div class="testi-who"><span class="testi-avatar" style="background:#22C55E;">L</span><div><div class="testi-name">Lakshmi Devi</div><div class="testi-role">Areca farmer, Shivamogga</div></div></div>
+          </div>
+          <div class="testi-card testi-card-marquee" aria-hidden="true">
+            <div class="testi-stars">★★★★☆</div>
+            <div class="testi-quote">"The AI told me my leaf disease in seconds. I sprayed the right medicine and saved my crop."</div>
+            <div class="testi-who"><span class="testi-avatar" style="background:#C9A227;">M</span><div><div class="testi-name">Manjunath</div><div class="testi-role">Pepper farmer, Kodagu</div></div></div>
+          </div>
         </div>
-        <div class="testi-card" data-reveal-item>
-          <div class="testi-stars">★★★★★</div>
-          <div class="testi-quote">"I check my farm's accounts from my phone even when I am travelling."</div>
-          <div class="testi-who"><span class="testi-avatar" style="background:#22C55E;">L</span><div><div class="testi-name">Lakshmi Devi</div><div class="testi-role">Areca farmer, Shivamogga</div></div></div>
-        </div>
-        <div class="testi-card" data-reveal-item>
-          <div class="testi-stars">★★★★☆</div>
-          <div class="testi-quote">"The AI told me my leaf disease in seconds. I sprayed the right medicine and saved my crop."</div>
-          <div class="testi-who"><span class="testi-avatar" style="background:#C9A227;">M</span><div><div class="testi-name">Manjunath</div><div class="testi-role">Pepper farmer, Kodagu</div></div></div>
+      </div>
+      <div class="marquee-row">
+        <div class="marquee-track" id="marqueeTrack2">
+          <div class="testi-card testi-card-marquee">
+            <div class="testi-stars">★★★★★</div>
+            <div class="testi-quote">"Renting a tractor used to mean five phone calls. Now I just check the app."</div>
+            <div class="testi-who"><span class="testi-avatar" style="background:#C9A227;">S</span><div><div class="testi-name">Suresh Gowda</div><div class="testi-role">Paddy farmer, Mandya</div></div></div>
+          </div>
+          <div class="testi-card testi-card-marquee">
+            <div class="testi-stars">★★★★★</div>
+            <div class="testi-quote">"My manager marks attendance every morning even when I'm away at the mandi."</div>
+            <div class="testi-who"><span class="testi-avatar" style="background:#6E56CF;">F</span><div><div class="testi-name">Farida Banu</div><div class="testi-role">Vegetable farmer, Belagavi</div></div></div>
+          </div>
+          <div class="testi-card testi-card-marquee">
+            <div class="testi-stars">★★★★☆</div>
+            <div class="testi-quote">"I sold my extra saplings through the marketplace and made back my nursery costs in a month."</div>
+            <div class="testi-who"><span class="testi-avatar" style="background:#22C55E;">P</span><div><div class="testi-name">Prakash Naik</div><div class="testi-role">Nursery owner, Sirsi</div></div></div>
+          </div>
+          <div class="testi-card testi-card-marquee" aria-hidden="true">
+            <div class="testi-stars">★★★★★</div>
+            <div class="testi-quote">"Renting a tractor used to mean five phone calls. Now I just check the app."</div>
+            <div class="testi-who"><span class="testi-avatar" style="background:#C9A227;">S</span><div><div class="testi-name">Suresh Gowda</div><div class="testi-role">Paddy farmer, Mandya</div></div></div>
+          </div>
+          <div class="testi-card testi-card-marquee" aria-hidden="true">
+            <div class="testi-stars">★★★★★</div>
+            <div class="testi-quote">"My manager marks attendance every morning even when I'm away at the mandi."</div>
+            <div class="testi-who"><span class="testi-avatar" style="background:#6E56CF;">F</span><div><div class="testi-name">Farida Banu</div><div class="testi-role">Vegetable farmer, Belagavi</div></div></div>
+          </div>
+          <div class="testi-card testi-card-marquee" aria-hidden="true">
+            <div class="testi-stars">★★★★☆</div>
+            <div class="testi-quote">"I sold my extra saplings through the marketplace and made back my nursery costs in a month."</div>
+            <div class="testi-who"><span class="testi-avatar" style="background:#22C55E;">P</span><div><div class="testi-name">Prakash Naik</div><div class="testi-role">Nursery owner, Sirsi</div></div></div>
+          </div>
         </div>
       </div>
     </div>
@@ -320,38 +373,40 @@ const LANDING_HTML = String.raw`
       </div>
       <div class="plans-row">
         <div class="plan-card" data-reveal-item>
-          <div class="plan-name">Basic</div>
-          <div class="plan-price"><span class="plan-amount">₹499</span><span class="plan-period">/month</span></div>
-          <div class="plan-note">For a single farm getting started.</div>
+          <div class="plan-name-row"><div class="plan-name">Basic</div></div>
+          <div class="plan-price"><span class="plan-amount">₹499</span><span class="plan-period-stack">per month<br/>billed monthly</span></div>
+          <a class="plan-cta-btn" href="/signup" data-nav="signup">Get Started →</a>
+          <div class="plan-quickfact">1 manager seat / month</div>
+          <div class="plan-includes">You get:</div>
           <div class="plan-features">
             <div class="plan-feat">{{ICON_CHECK}}<span>Attendance, accounts &amp; AI advisor</span></div>
             <div class="plan-feat">{{ICON_CHECK}}<span>Marketplace access</span></div>
-            <div class="plan-feat">{{ICON_CHECK}}<span>1 manager included</span></div>
+            <div class="plan-feat">{{ICON_CHECK}}<span>Community support</span></div>
           </div>
-          <a class="btn btn-ghost plan-cta" href="/signup" data-nav="signup">Start free — 30 days →</a>
         </div>
         <div class="plan-card plan-featured" data-reveal-item>
-          <div class="plan-badge">Most popular</div>
-          <div class="plan-name plan-name-on-dark">Premium</div>
-          <div class="plan-price"><span class="plan-amount plan-amount-on-dark">₹999</span><span class="plan-period plan-period-on-dark">/month</span></div>
-          <div class="plan-note plan-note-on-dark">For a growing operation with more managers.</div>
+          <div class="plan-name-row"><div class="plan-name">Premium</div><span class="plan-badge">Most popular</span></div>
+          <div class="plan-price"><span class="plan-amount">₹999</span><span class="plan-period-stack">per month<br/>billed monthly</span></div>
+          <a class="plan-cta-btn plan-cta-btn-featured" href="/signup" data-nav="signup">Get Started →</a>
+          <div class="plan-quickfact">5 manager seats / month</div>
+          <div class="plan-includes">You get:</div>
           <div class="plan-features">
-            <div class="plan-feat plan-feat-on-dark">{{ICON_CHECK_LIGHT}}<span>Everything in Basic</span></div>
-            <div class="plan-feat plan-feat-on-dark">{{ICON_CHECK_LIGHT}}<span>5 managers included</span></div>
-            <div class="plan-feat plan-feat-on-dark">{{ICON_CHECK_LIGHT}}<span>Priority support</span></div>
+            <div class="plan-feat">{{ICON_CHECK}}<span>Attendance, accounts &amp; AI advisor</span></div>
+            <div class="plan-feat">{{ICON_CHECK}}<span>Marketplace access</span></div>
+            <div class="plan-feat">{{ICON_CHECK}}<span>Priority support</span></div>
           </div>
-          <a class="btn plan-cta plan-cta-on-dark" href="/signup" data-nav="signup">Start free — 30 days →</a>
         </div>
         <div class="plan-card" data-reveal-item>
-          <div class="plan-name">Pro</div>
-          <div class="plan-price"><span class="plan-amount">₹1,999</span><span class="plan-period">/month</span></div>
-          <div class="plan-note">For large operations needing the most manager seats.</div>
+          <div class="plan-name-row"><div class="plan-name">Pro</div></div>
+          <div class="plan-price"><span class="plan-amount">₹1,999</span><span class="plan-period-stack">per month<br/>billed monthly</span></div>
+          <a class="plan-cta-btn plan-cta-btn-featured" href="/signup" data-nav="signup">Talk to us →</a>
+          <div class="plan-quickfact">10 manager seats / month</div>
+          <div class="plan-includes">You get:</div>
           <div class="plan-features">
-            <div class="plan-feat">{{ICON_CHECK}}<span>Everything in Premium</span></div>
-            <div class="plan-feat">{{ICON_CHECK}}<span>10 managers included</span></div>
+            <div class="plan-feat">{{ICON_CHECK}}<span>Attendance, accounts &amp; AI advisor</span></div>
+            <div class="plan-feat">{{ICON_CHECK}}<span>Marketplace access</span></div>
             <div class="plan-feat">{{ICON_CHECK}}<span>Dedicated support</span></div>
           </div>
-          <a class="btn btn-ghost plan-cta" href="/signup" data-nav="signup">Talk to us →</a>
         </div>
       </div>
       <div class="plans-footnote">Every plan starts with a free 30-day trial. No card required.</div>
@@ -623,8 +678,9 @@ const LANDING_CSS = String.raw`
 #landing-root .fc-sub { font-size: 10.5px; color: var(--faint); }
 
 /* reveal-on-scroll */
-#landing-root .reveal { opacity: 0; transform: translateY(24px); transition: opacity .7s ease, transform .7s ease; }
+#landing-root .reveal { padding: 72px 0; opacity: 0; transform: translateY(24px); transition: opacity .7s ease, transform .7s ease; }
 #landing-root .reveal.revealed { opacity: 1; transform: translateY(0); }
+@media (max-width: 640px) { #landing-root .reveal { padding: 48px 0; } }
 #landing-root [data-reveal-item] { opacity: 0; transform: translateY(18px); transition: opacity .6s ease, transform .6s ease; }
 #landing-root .revealed [data-reveal-item] { opacity: 1; transform: translateY(0); }
 #landing-root .revealed [data-reveal-item]:nth-child(1) { transition-delay: 0ms; }
@@ -634,13 +690,13 @@ const LANDING_CSS = String.raw`
 #landing-root .revealed [data-reveal-item]:nth-child(5) { transition-delay: 360ms; }
 
 /* stats */
-#landing-root .stats-grid { display: flex; flex-wrap: wrap; gap: 16px; padding: 24px 0 40px; }
+#landing-root .stats-grid { display: flex; flex-wrap: wrap; gap: 16px; }
 #landing-root .stat-card { flex: 1; min-width: 180px; background: #fff; border: 1px solid var(--card-border); border-radius: 18px; padding: 26px; text-align: center; box-shadow: 0 10px 26px -16px rgba(46,42,84,0.15); }
 #landing-root .stat-num { font-family: 'Sora', sans-serif; font-weight: 800; font-size: 32px; color: var(--indigo); }
 #landing-root .stat-label { font-size: 13px; color: var(--muted); margin-top: 4px; }
 
 /* bento features */
-#landing-root .bento { display: grid; grid-template-columns: repeat(4,1fr); grid-auto-rows: 180px; gap: 16px; padding: 40px 0 8px; }
+#landing-root .bento { display: grid; grid-template-columns: repeat(4,1fr); grid-auto-rows: 180px; gap: 16px; }
 #landing-root .bento-tile { background: #fff; border: 1px solid var(--card-border); border-radius: 20px; padding: 22px; transition: transform .3s ease, box-shadow .3s ease; }
 #landing-root .bento-tile:hover { transform: translateY(-6px); box-shadow: 0 20px 40px -20px rgba(46,42,84,0.25); }
 #landing-root .bento-big { grid-column: 1 / 3; grid-row: 1 / 3; background: linear-gradient(160deg,var(--indigo),#4A3F8C); border-radius: 22px; padding: 28px; color: #fff; display: flex; flex-direction: column; justify-content: space-between; }
@@ -656,7 +712,7 @@ const LANDING_CSS = String.raw`
 
 /* how it works */
 #landing-root .how-section { background: linear-gradient(180deg,#F5F3FF,var(--bg)); }
-#landing-root .how-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: stretch; padding: 64px 0 56px; }
+#landing-root .how-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: stretch; }
 #landing-root .how-card { flex: 1; min-width: 190px; background: #fff; border: 1px solid var(--card-border); border-radius: 20px; padding: 24px 20px; box-shadow: 0 14px 30px -22px rgba(46,42,84,0.2); position: relative; transition: transform .3s ease, box-shadow .3s ease; }
 #landing-root .how-card:hover { transform: translateY(-6px); box-shadow: 0 22px 40px -20px rgba(46,42,84,0.28); }
 #landing-root .how-badge { position: absolute; top: 16px; right: 16px; font-family: 'Sora', sans-serif; font-weight: 700; font-size: 12px; color: #C7C3DA; }
@@ -665,7 +721,7 @@ const LANDING_CSS = String.raw`
 #landing-root .how-desc { font-size: 13.5px; color: var(--muted); line-height: 1.55; }
 
 /* videos */
-#landing-root .video-row { display: flex; gap: 20px; flex-wrap: wrap; padding: 0 0 8px; }
+#landing-root .video-row { display: flex; gap: 20px; flex-wrap: wrap; }
 #landing-root .video-card { flex: 1; min-width: 280px; background: #fff; border: 1px solid var(--card-border); border-radius: 20px; overflow: hidden; box-shadow: 0 14px 32px -20px rgba(46,42,84,0.2); }
 #landing-root .video-thumb { height: 180px; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; transition: transform .35s ease; cursor: pointer; }
 #landing-root .video-thumb:hover { transform: scale(1.04); }
@@ -679,7 +735,7 @@ const LANDING_CSS = String.raw`
 
 /* market */
 #landing-root .market-section { background: linear-gradient(180deg,#F3FBF5,var(--bg)); }
-#landing-root .market-row { display: flex; flex-wrap: wrap; gap: 18px; padding: 0 0 24px; }
+#landing-root .market-row { display: flex; flex-wrap: wrap; gap: 18px; }
 #landing-root .market-card { flex: 1; min-width: 240px; background: #fff; border: 1px solid var(--card-border); border-radius: 22px; padding: 28px; transition: transform .3s ease, box-shadow .3s ease; }
 #landing-root .market-card:hover { transform: translateY(-8px); box-shadow: 0 26px 48px -22px rgba(46,42,84,0.28); }
 #landing-root .market-icon { width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center; margin-bottom: 18px; }
@@ -706,36 +762,44 @@ const LANDING_CSS = String.raw`
 #landing-root .ai-console-text { font-size: 15px; color: #fff; line-height: 1.6; min-height: 48px; }
 #landing-root .ai-cursor { animation: blink 1s step-end infinite; }
 
-/* testimonials */
-#landing-root .testi-row { display: flex; flex-wrap: wrap; gap: 20px; padding: 0 0 8px; }
-#landing-root .testi-card { flex: 1; min-width: 260px; display: flex; flex-direction: column; background: #fff; border: 1px solid var(--card-border); border-radius: 22px; padding: 28px; box-shadow: 0 16px 36px -24px rgba(46,42,84,0.22); }
+/* testimonials — dual-row marquee, each row looped (content duplicated in
+   markup) and driven by scroll delta rather than autoplay: row 1 drifts left
+   as the page scrolls down, row 2 drifts right, at the same rate so they stay
+   in sync. See the updateMarquee wiring in the component below. */
+#landing-root .marquee-wrap { display: flex; flex-direction: column; gap: 20px; }
+#landing-root .marquee-row { overflow: hidden; }
+#landing-root .marquee-track { display: flex; gap: 20px; width: max-content; }
+#landing-root .testi-card { display: flex; flex-direction: column; background: #fff; border: 1px solid var(--card-border); border-radius: 22px; padding: 28px; box-shadow: 0 16px 36px -24px rgba(46,42,84,0.22); }
+#landing-root .testi-card-marquee { flex: 0 0 340px; width: 340px; }
 #landing-root .testi-stars { color: var(--gold); font-size: 15px; margin-bottom: 14px; }
 #landing-root .testi-quote { font-size: 15px; line-height: 1.6; color: #3F3C4A; margin-bottom: 22px; flex: 1; }
 #landing-root .testi-who { display: flex; align-items: center; gap: 10px; }
 #landing-root .testi-avatar { width: 42px; height: 42px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-family: 'Sora', sans-serif; font-size: 16px; flex-shrink: 0; }
 #landing-root .testi-name { font-weight: 700; font-size: 14px; }
 #landing-root .testi-role { font-size: 12.5px; color: var(--faint); }
+@media (max-width: 640px) { #landing-root .testi-card-marquee { flex-basis: 280px; width: 280px; } }
 
-/* pricing */
-#landing-root .plans-row { display: flex; gap: 20px; flex-wrap: wrap; align-items: stretch; padding: 0 0 8px; }
-#landing-root .plan-card { flex: 1; min-width: 260px; display: flex; flex-direction: column; text-align: center; position: relative; background: #fff; border: 1px solid var(--card-border); border-radius: 24px; padding: 32px; box-shadow: 0 18px 40px -26px rgba(46,42,84,0.2); }
-#landing-root .plan-featured { background: var(--indigo); border: none; color: #fff; box-shadow: 0 26px 50px -18px rgba(46,42,84,0.45); transform: translateY(-8px); }
-#landing-root .plan-badge { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); background: var(--green); color: #fff; font-size: 11.5px; font-weight: 700; padding: 5px 14px; border-radius: 999px; white-space: nowrap; }
-#landing-root .plan-name { font-family: 'Sora', sans-serif; font-weight: 700; font-size: 17px; color: var(--violet); }
-#landing-root .plan-name-on-dark { color: #C9BEF0; }
-#landing-root .plan-price { margin: 14px 0 4px; }
-#landing-root .plan-amount { font-family: 'Sora', sans-serif; font-weight: 800; font-size: 38px; }
-#landing-root .plan-amount-on-dark { color: #fff; }
-#landing-root .plan-period { color: var(--faint); font-size: 14px; }
-#landing-root .plan-period-on-dark { color: #B9B2D8; }
-#landing-root .plan-note { font-size: 12.5px; color: var(--faint); margin-bottom: 4px; }
-#landing-root .plan-note-on-dark { color: #C9BEF0; }
-#landing-root .plan-features { text-align: left; display: flex; flex-direction: column; gap: 10px; margin: 22px 0 24px; flex: 1; }
-#landing-root .plan-feat { display: flex; gap: 8px; align-items: flex-start; font-size: 13.5px; color: #3F3C4A; }
-#landing-root .plan-feat-on-dark { color: #E4E1F2; }
-#landing-root .plan-cta { justify-content: center; }
-#landing-root .plan-cta-on-dark { background: #fff; color: var(--indigo); }
-#landing-root .plan-cta-on-dark:hover { color: var(--indigo); transform: scale(1.03); }
+/* pricing — flat cards matching the reference precisely: black plan names,
+   price with a two-line billing caption beside it, a rectangular (not pill)
+   button, a bordered quick-fact box for the tier's seat count, then a plain
+   "You get:"/"Everything in X, plus:" label above the checklist. */
+#landing-root .plans-row { display: flex; gap: 20px; flex-wrap: wrap; align-items: stretch; }
+#landing-root .plan-card { flex: 1; min-width: 260px; display: flex; flex-direction: column; text-align: left; position: relative; background: #fff; border: 1px solid #E5E3ED; border-radius: 16px; padding: 24px; }
+#landing-root .plan-featured { border-color: #D8D2EF; }
+#landing-root .plan-name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+#landing-root .plan-badge { background: #EDE9FE; color: #6D28D9; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+#landing-root .plan-name { font-family: 'Sora', sans-serif; font-weight: 700; font-size: 17px; color: var(--ink); }
+#landing-root .plan-price { display: flex; align-items: baseline; gap: 8px; margin: 14px 0 16px; }
+#landing-root .plan-amount { font-family: 'Sora', sans-serif; font-weight: 800; font-size: 32px; color: var(--ink); }
+#landing-root .plan-period-stack { font-size: 11px; line-height: 1.4; color: var(--faint); }
+#landing-root .plan-cta-btn { display: block; text-align: center; width: 100%; height: 42px; line-height: 42px; border-radius: 10px; font-weight: 600; font-size: 14px; background: #F3F2F7; color: var(--ink); }
+#landing-root .plan-cta-btn:hover { background: #EAE8F0; color: var(--ink); text-decoration: none; }
+#landing-root .plan-cta-btn-featured { background: var(--violet); color: #fff; }
+#landing-root .plan-cta-btn-featured:hover { background: #5D46B8; color: #fff; }
+#landing-root .plan-quickfact { margin-top: 12px; border: 1px solid #E5E3ED; border-radius: 8px; padding: 9px 12px; font-size: 12.5px; font-weight: 600; color: var(--violet); }
+#landing-root .plan-includes { font-size: 12.5px; color: var(--muted); margin: 20px 0 10px; }
+#landing-root .plan-features { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+#landing-root .plan-feat { display: flex; gap: 7px; align-items: flex-start; font-size: 13px; color: #3F3C4A; }
 #landing-root .plans-footnote { text-align: center; font-size: 12.5px; color: var(--faint); margin-top: 22px; }
 
 /* faq */
@@ -812,7 +876,7 @@ const ICON_SHAPES: Record<string, string> = {
   cloud: '<path d="M6 18a4 4 0 010-8 5 5 0 019.6-1.5A4.5 4.5 0 0118 18H6z"/>',
   basket: '<path d="M4 10h16l-2 10H6L4 10z"/><path d="M8 10l2-6h4l2 6"/><line x1="9" y1="14" x2="9.5" y2="17"/><line x1="15" y1="14" x2="14.5" y2="17"/>',
   phone: '<rect x="7" y="2" width="10" height="20" rx="2"/><line x1="10" y1="19" x2="14" y2="19"/>',
-  check: '<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/>',
+  check: '<path d="M4 12l5 5L20 6"/>',
   play: '<circle cx="12" cy="12" r="9"/><path d="M10 8l6 4-6 4V8z"/>',
 };
 
@@ -843,8 +907,7 @@ const ICONS: Record<string, string> = {
   ICON_LEAF_TINY: svgIcon("leaf", "#fff", 15),
   ICON_CHAT_TINY: svgIcon("chat", "#fff", 15),
   ICON_STETHO_TINY: svgIcon("stetho", "#fff", 15),
-  ICON_CHECK: svgIcon("check", GREEN, 18),
-  ICON_CHECK_LIGHT: svgIcon("check", "#B9F5CE", 18),
+  ICON_CHECK: svgIcon("check", VIOLET, 14),
   ICON_PHONE_TINY: svgIcon("phone", "#D6D2E3", 15),
 };
 
@@ -917,6 +980,8 @@ export default function Landing({ onNavigate }: LandingProps) {
     root.addEventListener("click", handleClick);
     cleanups.push(() => root.removeEventListener("click", handleClick));
 
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
     // --- Scroll progress bar ---
     const progressBar = root.querySelector<HTMLElement>("#progressBar");
     let ticking = false;
@@ -925,11 +990,46 @@ export default function Landing({ onNavigate }: LandingProps) {
       const pct = docH > 0 ? Math.min(100, (window.scrollY / docH) * 100) : 0;
       if (progressBar) progressBar.style.width = `${pct}%`;
     }
+
+    // --- Dual-row testimonial marquee, driven by scroll delta ---
+    // Each track's content is duplicated in the markup so it can loop
+    // seamlessly; row 1 drifts left as the page scrolls down, row 2 drifts
+    // right at the same rate. Not an autoplay animation — it only moves when
+    // the page itself is scrolled, and is skipped entirely under
+    // prefers-reduced-motion.
+    const marqueeTrack1 = root.querySelector<HTMLElement>("#marqueeTrack1");
+    const marqueeTrack2 = root.querySelector<HTMLElement>("#marqueeTrack2");
+    let lastScrollY = window.scrollY;
+    let marqueeOffset1 = 0;
+    let marqueeOffset2 = 0;
+    const MARQUEE_SPEED = 0.6;
+    function updateMarquee() {
+      if (reduceMotion) return;
+      const currentY = window.scrollY;
+      const dy = currentY - lastScrollY;
+      lastScrollY = currentY;
+      if (marqueeTrack1) {
+        const setWidth = marqueeTrack1.scrollWidth / 2;
+        if (setWidth > 0) {
+          marqueeOffset1 = ((marqueeOffset1 + dy * MARQUEE_SPEED) % setWidth + setWidth) % setWidth;
+          marqueeTrack1.style.transform = `translateX(${-marqueeOffset1}px)`;
+        }
+      }
+      if (marqueeTrack2) {
+        const setWidth = marqueeTrack2.scrollWidth / 2;
+        if (setWidth > 0) {
+          marqueeOffset2 = ((marqueeOffset2 - dy * MARQUEE_SPEED) % setWidth + setWidth) % setWidth;
+          marqueeTrack2.style.transform = `translateX(${-marqueeOffset2}px)`;
+        }
+      }
+    }
+
     function onScroll() {
       if (ticking) return;
       ticking = true;
       requestAnimationFrame(() => {
         updateProgress();
+        updateMarquee();
         ticking = false;
       });
     }
@@ -942,7 +1042,6 @@ export default function Landing({ onNavigate }: LandingProps) {
     });
 
     // --- Scroll-reveal ---
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let statsAnimated = false;
     function animateStats(section: HTMLElement) {
       if (statsAnimated) return;

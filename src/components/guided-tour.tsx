@@ -14,39 +14,63 @@ const VIDEO_URL: string | null = null;
 
 export function GuidedTour({ onClose }: GuidedTourProps) {
   return (
-    <div className="fixed inset-0 z-50 bg-gradient-to-b from-primary/10 via-background to-background flex flex-col">
-      <div className="flex items-center justify-between px-5 pt-5">
-        <BrandLogo className="h-8 w-8" />
-        <button onClick={onClose} aria-label="Close" className="text-gray-400 p-2 -mr-2">
-          <X className="h-6 w-6" />
-        </button>
-      </div>
-
-      <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
-        <h2 className="text-2xl font-bold text-gray-800 leading-snug">Welcome to Chiguru!</h2>
-        <p className="text-base text-gray-600 mt-2 leading-relaxed max-w-xs">
-          Here's a quick look at how the app works.
-        </p>
-
-        <div className="w-full max-w-sm mt-6 aspect-video rounded-2xl overflow-hidden shadow-sm">
-          {VIDEO_URL ? (
-            <video src={VIDEO_URL} controls autoPlay className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full bg-primary/10 flex flex-col items-center justify-center gap-2 text-primary/60">
-              <PlayCircle className="h-12 w-12" />
-              <p className="text-sm font-medium">Video coming soon</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="px-5 pb-8 pt-1">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="relative w-full max-w-3xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row">
         <button
           onClick={onClose}
-          className="w-full rounded-2xl h-14 bg-primary text-primary-foreground text-lg font-semibold active:bg-primary/90"
+          aria-label="Close"
+          className="absolute top-4 right-4 z-10 text-gray-400 hover:text-gray-600 bg-white/80 rounded-full p-1.5"
         >
-          Get started →
+          <X className="h-5 w-5" />
         </button>
+
+        <div className="md:w-1/2 aspect-video md:aspect-auto bg-gradient-to-br from-primary via-primary to-[#6E56CF] flex flex-col items-center justify-center gap-3 p-8 relative overflow-hidden">
+          {VIDEO_URL ? (
+            <video src={VIDEO_URL} controls autoPlay className="absolute inset-0 w-full h-full object-cover" />
+          ) : (
+            <>
+              <BrandLogo className="h-16 w-16 opacity-90" />
+              <div className="h-14 w-14 rounded-full bg-white/15 flex items-center justify-center">
+                <PlayCircle className="h-8 w-8 text-white" />
+              </div>
+              <p className="text-sm font-medium text-white/80">Product walkthrough — coming soon</p>
+            </>
+          )}
+        </div>
+
+        <div className="md:w-1/2 flex flex-col justify-between p-8">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 leading-snug">Welcome to Chiguru</h2>
+            <p className="text-base text-gray-600 mt-3 leading-relaxed">
+              Manage{" "}
+              <span className="inline-block rounded-md px-1.5 py-0.5 bg-[#6E56CF]/10 text-[#6E56CF] font-medium">
+                Attendance
+              </span>
+              ,{" "}
+              <span className="inline-block rounded-md px-1.5 py-0.5 bg-[#C9A227]/10 text-[#A8801E] font-medium">
+                Farm Accounts
+              </span>
+              ,{" "}
+              <span className="inline-block rounded-md px-1.5 py-0.5 bg-[#22C55E]/10 text-[#1B9950] font-medium">
+                AI Advisor
+              </span>{" "}
+              and the{" "}
+              <span className="inline-block rounded-md px-1.5 py-0.5 bg-primary/10 text-primary font-medium">
+                Marketplace
+              </span>{" "}
+              — all in one app.
+            </p>
+          </div>
+
+          <div className="flex justify-end mt-8 md:mt-0">
+            <button
+              onClick={onClose}
+              className="inline-flex items-center gap-2 rounded-full h-12 px-6 bg-primary text-primary-foreground text-base font-semibold hover:bg-primary/90"
+            >
+              Get Started →
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

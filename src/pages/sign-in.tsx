@@ -37,6 +37,7 @@ export default function SignInPage({ initialMode = "signin" }: SignInPageProps) 
   const [otp, setOtp] = useState("");
   const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [resendIn, setResendIn] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -60,13 +61,34 @@ export default function SignInPage({ initialMode = "signin" }: SignInPageProps) 
     }, 1000);
   }
 
+  // Firebase's own error messages are raw codes like "Error (auth/invalid-credential)."
+  // — map the ones this page can actually trigger to plain language instead.
+  const AUTH_ERROR_MESSAGES: Record<string, string> = {
+    "auth/invalid-credential": "Invalid email or password.",
+    "auth/wrong-password": "Invalid email or password.",
+    "auth/user-not-found": "Invalid email or password.",
+    "auth/email-already-in-use": "An account with this email already exists. Try signing in instead.",
+    "auth/weak-password": "Password should be at least 6 characters.",
+    "auth/invalid-email": "Please enter a valid email address.",
+    "auth/too-many-requests": "Too many attempts. Please try again in a few minutes.",
+    "auth/user-disabled": "This account has been disabled. Contact support.",
+    "auth/invalid-phone-number": "Please enter a valid phone number.",
+    "auth/invalid-verification-code": "Incorrect OTP. Please try again.",
+    "auth/code-expired": "This OTP has expired. Request a new one.",
+    "auth/network-request-failed": "Network error — check your connection and try again.",
+    "auth/popup-closed-by-user": "Sign-in was cancelled.",
+    "auth/account-exists-with-different-credential": "An account already exists with this email using a different sign-in method.",
+  };
+
   function handleError(err: unknown) {
-    const message = err instanceof Error ? err.message.replace(/^Firebase:\s*/, "") : "Something went wrong";
-    toast({ title: message, variant: "destructive" });
+    const code = typeof err === "object" && err !== null && "code" in err ? String((err as { code: unknown }).code) : null;
+    const fallback = err instanceof Error ? err.message.replace(/^Firebase:\s*/, "") : "Something went wrong";
+    setError((code && AUTH_ERROR_MESSAGES[code]) || fallback);
   }
 
   async function handleEmailSubmit() {
     if (!email.trim() || !password) return;
+    setError(null);
     setLoading(true);
     try {
       if (mode === "signin") await signInWithEmail(email.trim(), password);
@@ -79,6 +101,7 @@ export default function SignInPage({ initialMode = "signin" }: SignInPageProps) 
   }
 
   async function handleGoogle() {
+    setError(null);
     setLoading(true);
     try {
       await signInWithGoogle();
@@ -92,6 +115,7 @@ export default function SignInPage({ initialMode = "signin" }: SignInPageProps) 
   async function sendOtp(isResend: boolean) {
     const digits = phone.trim();
     if (!digits) return;
+    setError(null);
     setLoading(true);
     try {
       const result = await sendPhoneOtp(`${dialCode}${digits}`, "recaptcha-container");
@@ -107,6 +131,7 @@ export default function SignInPage({ initialMode = "signin" }: SignInPageProps) 
 
   async function handleVerifyOtp() {
     if (!confirmation || !otp.trim()) return;
+    setError(null);
     setLoading(true);
     try {
       await confirmation.confirm(otp.trim());
@@ -132,13 +157,19 @@ export default function SignInPage({ initialMode = "signin" }: SignInPageProps) 
 
         <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
           <button
-            onClick={() => setTab("email")}
+            onClick={() => {
+              setTab("email");
+              setError(null);
+            }}
             className={`flex-1 py-2 text-xs font-medium rounded-lg transition-colors ${tab === "email" ? "bg-white text-primary shadow-sm" : "text-gray-500"}`}
           >
             Email
           </button>
           <button
-            onClick={() => setTab("phone")}
+            onClick={() => {
+              setTab("phone");
+              setError(null);
+            }}
             className={`flex-1 py-2 text-xs font-medium rounded-lg transition-colors ${tab === "phone" ? "bg-white text-primary shadow-sm" : "text-gray-500"}`}
           >
             Phone
@@ -185,7 +216,10 @@ export default function SignInPage({ initialMode = "signin" }: SignInPageProps) 
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : mode === "signin" ? "Sign in" : "Sign up"}
             </Button>
             <button
-              onClick={() => setMode((m) => (m === "signin" ? "signup" : "signin"))}
+              onClick={() => {
+                setMode((m) => (m === "signin" ? "signup" : "signin"));
+                setError(null);
+              }}
               className="w-full text-center text-sm text-primary font-medium"
             >
               {mode === "signin" ? "New here? Create an account" : "Already have an account? Sign in"}
@@ -256,6 +290,12 @@ export default function SignInPage({ initialMode = "signin" }: SignInPageProps) 
                 </button>
               </>
             )}
+          </div>
+        )}
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm text-center">
+            {error}
           </div>
         )}
 
