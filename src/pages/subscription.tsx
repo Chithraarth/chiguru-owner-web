@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Crown, Check, Loader2, Lock, Share2, PartyPopper, Users, Receipt, AlertTriangle } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
@@ -89,31 +89,31 @@ function fmtDate(iso?: string | null) {
   return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
-/** Loads checkout.js once, lazily — only this page needs it. */
-function useRazorpayScript() {
-  const [ready, setReady] = useState(!!window.Razorpay);
-  useEffect(() => {
-    if (window.Razorpay) {
-      setReady(true);
-      return;
-    }
+// Razorpay's checkout.js is a large SDK that eagerly loads dozens of
+// payment-method/language chunks the moment it initializes — not worth
+// downloading for every visitor to this page, only for someone who actually
+// clicks Subscribe. Loaded on demand and cached so a second click reuses it.
+let razorpayScriptPromise: Promise<boolean> | null = null;
+function loadRazorpayScript(): Promise<boolean> {
+  if (window.Razorpay) return Promise.resolve(true);
+  if (razorpayScriptPromise) return razorpayScriptPromise;
+  razorpayScriptPromise = new Promise((resolve) => {
     const script = document.createElement("script");
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
     script.async = true;
-    script.onload = () => setReady(true);
-    script.onerror = () => setReady(false);
-    document.body.appendChild(script);
-    return () => {
-      document.body.removeChild(script);
+    script.onload = () => resolve(true);
+    script.onerror = () => {
+      razorpayScriptPromise = null; // allow retrying on a later click
+      resolve(false);
     };
-  }, []);
-  return ready;
+    document.body.appendChild(script);
+  });
+  return razorpayScriptPromise;
 }
 
 export default function Subscription() {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const razorpayReady = useRazorpayScript();
   const [flow, setFlow] = useState<FlowState>("idle");
   const [busyPlanId, setBusyPlanId] = useState<number | null>(null);
   const [busyShare, setBusyShare] = useState<string | null>(null);
@@ -140,14 +140,18 @@ export default function Subscription() {
   };
 
   async function subscribe(plan: Plan) {
-    if (!razorpayReady || !window.Razorpay) {
-      toast({ title: "Payment page didn't load", description: "Check your connection and try again.", variant: "destructive" });
-      return;
-    }
     setBusyPlanId(plan.id);
     setFlow("creating");
     try {
-      const created = await apiMutate<{ subscriptionId: string; keyId: string }>("POST", "/subscriptions/razorpay/create", { planId: plan.id });
+      const [scriptOk, created] = await Promise.all([
+        loadRazorpayScript(),
+        apiMutate<{ subscriptionId: string; keyId: string }>("POST", "/subscriptions/razorpay/create", { planId: plan.id }),
+      ]);
+      if (!scriptOk || !window.Razorpay) {
+        toast({ title: "Payment page didn't load", description: "Check your connection and try again.", variant: "destructive" });
+        setFlow("idle");
+        return;
+      }
       if (!created) throw new Error("offline");
 
       setFlow("opening_checkout");

@@ -19,12 +19,16 @@ type Tab = "email" | "phone";
 
 const RESEND_SECONDS = 60;
 
+interface SignInPageProps {
+  initialMode?: Mode;
+}
+
 // The auth-state listener in App.tsx swaps this page out for the app itself
 // the moment any of these methods succeeds — no explicit redirect needed here.
-export default function SignInPage() {
+export default function SignInPage({ initialMode = "signin" }: SignInPageProps) {
   const { toast } = useToast();
   const [tab, setTab] = useState<Tab>("email");
-  const [mode, setMode] = useState<Mode>("signin");
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);

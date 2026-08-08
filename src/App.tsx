@@ -1,5 +1,5 @@
-import { Suspense, useState } from "react";
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Suspense } from "react";
+import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { Toaster } from "@/components/ui/toaster";
@@ -134,13 +134,21 @@ function Router() {
   );
 }
 
-// Signed-out visitors see the marketing landing page first; any "Sign In" /
-// "Start Free" CTA on it hands off to the real sign-in form.
+// Signed-out visitors see the marketing landing page at "/"; its "Sign In" /
+// "Sign Up" CTAs are real, deep-linkable routes rather than local UI state,
+// so a bookmarked or shared /login or /signup link works on its own.
 function UnauthenticatedGate() {
-  const [showSignIn, setShowSignIn] = useState(false);
+  const [, navigate] = useLocation();
 
-  if (!showSignIn) return <Landing onGetStarted={() => setShowSignIn(true)} />;
-  return <SignInPage />;
+  return (
+    <Switch>
+      <Route path="/login"><SignInPage initialMode="signin" /></Route>
+      <Route path="/signup"><SignInPage initialMode="signup" /></Route>
+      <Route>
+        <Landing onNavigate={(target) => navigate(`/${target}`)} />
+      </Route>
+    </Switch>
+  );
 }
 
 // Mandatory sign-in gate: every route above is unreachable until Firebase
