@@ -16,6 +16,7 @@ import { Sidebar } from "@/components/sidebar";
 import SignInPage from "@/pages/sign-in";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
+import { TermsPage, PrivacyPage } from "@/pages/legal";
 
 const Dashboard = lazyWithReload(() => import("@/pages/dashboard"));
 const HelpPage = lazyWithReload(() => import("@/pages/help"));
@@ -136,7 +137,8 @@ function Router() {
 
 // Signed-out visitors see the marketing landing page at "/"; its "Sign In" /
 // "Sign Up" CTAs are real, deep-linkable routes rather than local UI state,
-// so a bookmarked or shared /login or /signup link works on its own.
+// so a bookmarked or shared /login or /signup link works on its own. Same
+// goes for /terms and /privacy, e.g. for app store listing links.
 function UnauthenticatedGate() {
   const [, navigate] = useLocation();
 
@@ -144,6 +146,8 @@ function UnauthenticatedGate() {
     <Switch>
       <Route path="/login"><SignInPage initialMode="signin" /></Route>
       <Route path="/signup"><SignInPage initialMode="signup" /></Route>
+      <Route path="/terms"><TermsPage /></Route>
+      <Route path="/privacy"><PrivacyPage /></Route>
       <Route>
         <Landing onNavigate={(target) => navigate(`/${target}`)} />
       </Route>
