@@ -228,3 +228,41 @@ export function PrivacyPage() {
     </LegalLayout>
   );
 }
+
+export function DeleteAccountPage() {
+  return (
+    <LegalLayout title="Delete Your Account">
+      <p className="legal-date">Chiguru — Owner app</p>
+
+      <h2>How to request deletion</h2>
+      <p>
+        To delete your Chiguru Owner account, email <a href="mailto:support@thechiguru.com">support@thechiguru.com</a> from
+        the email address or phone number registered on your account, with the subject line "Delete my account". Include
+        your farm/estate name so we can locate your account. We will confirm your identity and complete the deletion
+        within 7 business days, and reply to confirm once it's done.
+      </p>
+
+      <h2>What gets deleted</h2>
+      <p>
+        Your owner profile, farm/estate details, worker and manager records, attendance history (including face photos
+        used for attendance verification), daily work updates, farm accounts and expense records, loan records,
+        marketplace and equipment listings, and AI advisor conversation history are permanently deleted from our active
+        systems.
+      </p>
+
+      <h2>What may be retained</h2>
+      <p>
+        Payment and subscription records (billed through Razorpay or Google Play) may be retained for a limited period
+        as required by tax and financial regulations. Backup copies of deleted data may persist for up to 30 days before
+        being purged from backups, after which they are unrecoverable.
+      </p>
+
+      <h2>Partial data deletion</h2>
+      <p>
+        If you'd like specific data deleted (for example, a worker's attendance photos) without deleting your whole
+        account, email us at <a href="mailto:support@thechiguru.com">support@thechiguru.com</a> describing what you'd
+        like removed.
+      </p>
+    </LegalLayout>
+  );
+}

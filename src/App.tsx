@@ -16,7 +16,7 @@ import { Sidebar } from "@/components/sidebar";
 import SignInPage from "@/pages/sign-in";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
-import { TermsPage, PrivacyPage } from "@/pages/legal";
+import { TermsPage, PrivacyPage, DeleteAccountPage } from "@/pages/legal";
 
 const Dashboard = lazyWithReload(() => import("@/pages/dashboard"));
 const HelpPage = lazyWithReload(() => import("@/pages/help"));
@@ -148,6 +148,7 @@ function UnauthenticatedGate() {
       <Route path="/signup"><SignInPage initialMode="signup" /></Route>
       <Route path="/terms"><TermsPage /></Route>
       <Route path="/privacy"><PrivacyPage /></Route>
+      <Route path="/delete-account"><DeleteAccountPage /></Route>
       <Route>
         <Landing onNavigate={(target) => navigate(`/${target}`)} />
       </Route>
