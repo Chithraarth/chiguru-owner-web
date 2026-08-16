@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Sprout, X, Loader2, Pencil, Check, Trash2, Leaf, ChevronDown, Plus } from "lucide-react";
+import { Sprout, X, Loader2, Pencil, Check, Trash2, Leaf, ChevronDown, Plus, Merge } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { SelectOrType } from "@/components/select-or-type";
 import { PageShell } from "@/components/page-shell";
@@ -115,6 +115,21 @@ export default function Crops() {
     onError: () => toast({ title: "Error", variant: "destructive" }),
   });
 
+  // Merge one crop's records (harvests, sprays, expenses, plan tasks…) into
+  // another crop, then remove the duplicate row. Used to clean up duplicate
+  // crop entries that split totals.
+  const [mergeCrop, setMergeCrop] = useState<Crop | null>(null);
+  const mergeCropMutation = useMutation({
+    mutationFn: ({ id, intoId }: { id: number; intoId: number }) =>
+      apiMutate("POST", `/crops/${id}/merge`, { intoId }),
+    onSuccess: () => {
+      qc.invalidateQueries();
+      setMergeCrop(null);
+      toast({ title: t("estate.saved") });
+    },
+    onError: (err) => toast({ title: errorMessage(err, "Error"), variant: "destructive" }),
+  });
+
   // ── Estate form ───────────────────────────────────────────────────────────────
   const estateFormHook = useForm<EstateForm>();
 
@@ -192,6 +207,15 @@ export default function Crops() {
     });
     setShowCropForm(true);
   }
+
+  // Names that appear on more than one crop row in this estate — those rows get
+  // a "duplicate" badge that jumps straight into the merge flow.
+  const nameCounts = crops.reduce<Record<string, number>>((acc, c) => {
+    const k = c.name.trim().toLowerCase();
+    acc[k] = (acc[k] ?? 0) + 1;
+    return acc;
+  }, {});
+  const isDuplicate = (crop: Crop) => (nameCounts[crop.name.trim().toLowerCase()] ?? 0) > 1;
 
   async function onSubmitCrop(data: CropForm) {
     const base = {
@@ -384,6 +408,66 @@ export default function Crops() {
         </div>
       )}
 
+      {/* Merge crop sheet — bottom sheet on mobile, right-side panel on
+          wide/web screens (lg+). */}
+      {mergeCrop && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end lg:items-stretch lg:justify-end">
+          <div className="bg-white w-full rounded-t-2xl p-5 pb-8 max-h-[85vh] overflow-y-auto lg:w-[440px] lg:max-w-[90vw] lg:rounded-none lg:rounded-l-2xl lg:max-h-none lg:h-full">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="font-semibold text-lg">Merge "{mergeCrop.name}"</h2>
+              <button onClick={() => setMergeCrop(null)}>
+                <X size={20} />
+              </button>
+            </div>
+            <p className="text-sm text-gray-500 mb-4">
+              All harvests, sprays, expenses and plan tasks of "{mergeCrop.name}" will move to the
+              crop you pick, and this duplicate entry will be removed. This cannot be undone.
+            </p>
+            <div className="space-y-2">
+              {crops
+                .filter((c) => c.id !== mergeCrop.id)
+                // Same-name crops (the likely merge target) float to the top.
+                .sort((a, b) => {
+                  const target = mergeCrop.name.trim().toLowerCase();
+                  const aMatch = a.name.trim().toLowerCase() === target ? 0 : 1;
+                  const bMatch = b.name.trim().toLowerCase() === target ? 0 : 1;
+                  return aMatch - bMatch;
+                })
+                .map((c) => (
+                  <button
+                    key={c.id}
+                    disabled={mergeCropMutation.isPending}
+                    onClick={() => {
+                      if (confirm(`Merge "${mergeCrop.name}" into "${c.name}${c.variety ? ` (${c.variety})` : ""}"?`)) {
+                        mergeCropMutation.mutate({ id: mergeCrop.id, intoId: c.id });
+                      }
+                    }}
+                    className="w-full text-left bg-gray-50 rounded-xl p-3 flex items-center justify-between active:bg-primary/10 disabled:opacity-50"
+                  >
+                    <div>
+                      <span className="font-medium text-gray-900">{c.name}</span>
+                      {c.variety && (
+                        <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                          {c.variety}
+                        </span>
+                      )}
+                      <div className="text-xs text-gray-500 mt-0.5">{c.acres} acres · {c.season}</div>
+                    </div>
+                    {mergeCropMutation.isPending ? (
+                      <Loader2 size={16} className="animate-spin text-primary" />
+                    ) : (
+                      <Merge size={16} className="text-primary" />
+                    )}
+                  </button>
+                ))}
+              {crops.length <= 1 && (
+                <p className="text-sm text-gray-400 py-2">No other crop to merge into.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Estate add/edit sheet — bottom sheet on mobile, right-side panel on
           wide/web screens (lg+). */}
       {showEstateForm && (
@@ -566,6 +650,15 @@ export default function Crops() {
                             <div className="min-w-0">
                               <div className="flex items-center gap-2">
                                 <span className="font-medium text-gray-900">{crop.name}</span>
+                                {isDuplicate(crop) && (
+                                  <button
+                                    onClick={() => setMergeCrop(crop)}
+                                    className="text-xs bg-amber-50 text-amber-700 border border-amber-300 px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0"
+                                    aria-label="Duplicate crop — tap to merge"
+                                  >
+                                    <Merge size={11} /> {t("estate.duplicateTapToMerge")}
+                                  </button>
+                                )}
                                 {crop.variety && (
                                   <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
                                     {crop.variety}
@@ -585,6 +678,15 @@ export default function Crops() {
                               >
                                 <Pencil size={14} />
                               </button>
+                              {crops.length > 1 && (
+                                <button
+                                  onClick={() => setMergeCrop(crop)}
+                                  className="p-1.5 text-gray-400 hover:text-primary"
+                                  aria-label="Merge crop"
+                                >
+                                  <Merge size={14} />
+                                </button>
+                              )}
                               <button
                                 onClick={() => deleteCrop.mutate(crop.id)}
                                 className="p-1.5 text-gray-400 hover:text-red-500"

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
   Leaf, UserCheck, Camera,
@@ -7,11 +7,12 @@ import {
   Stethoscope, Handshake, LineChart, ArrowUpRight,
   RefreshCw, ChevronDown, ChevronUp, BookOpen, Store,
   Tractor, Wrench, Users, ChevronRight, Check,
+  CalendarCheck, Circle, CheckCircle2,
 } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { GuidedTour } from "@/components/guided-tour";
 import { shouldShowTour, markTourShown } from "@/lib/tour-utils";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, apiMutate } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 import { useEstate } from "@/lib/use-estate";
 import { fmtMoney, curSymbol } from "@/lib/currency";
@@ -38,6 +39,13 @@ interface RecentAd {
   place: string;
   createdAt: string;
   href: string;
+}
+
+interface PlanTask {
+  id: number;
+  month: string; // YYYY-MM
+  title: string;
+  done: boolean;
 }
 
 const AD_STYLE: Record<RecentAd["board"], { icon: typeof Tractor; bg: string; fg: string }> = {
@@ -74,6 +82,7 @@ const ADVISORY = [
   { href: "/agri-doctor", icon: Stethoscope, chip: "bg-[#E4E7FB] text-[#5B6ED6]", title: "Agri Doctor", desc: "Ask a specialist" },
   { href: "/disease", icon: ScanLine, chip: "bg-[#FBE4E4] text-[#D66B6B]", title: "Disease Check", desc: "Scan a leaf" },
   { href: "/agri-ai", icon: BotMessageSquare, chip: "bg-[#EDE4FB] text-[#8B5BD6]", title: "Agri Advisor", desc: "Daily guidance" },
+  { href: "/year-plan", icon: CalendarCheck, chip: "bg-primary/10 text-primary", title: "Year Plan", desc: "12-month task calendar" },
   { href: "/reports", icon: LineChart, chip: "bg-[#E4EEFB] text-[#5B8CD6]", title: "Reports", desc: "Season summaries" },
 ];
 
@@ -118,6 +127,7 @@ function ToolSection({ title, items }: { title: string; items: ToolItem[] }) {
 
 export default function Dashboard() {
   const { t } = useT();
+  const qc = useQueryClient();
   const { estates, activeEstateId, activeEstate, setActiveEstate } = useEstate();
   const [showTour, setShowTour] = useState(false);
   const [showEstates, setShowEstates] = useState(false);
@@ -132,6 +142,28 @@ export default function Dashboard() {
     queryKey: ["farm-profile"],
     queryFn: () => apiFetch("/farm/profile"),
     retry: false,
+  });
+
+  const { data: planTasks } = useQuery<PlanTask[]>({
+    queryKey: ["plan-tasks"],
+    queryFn: () => apiFetch("/plan-tasks"),
+  });
+
+  // Current month's undone Year Plan tasks — surfaced only when a plan exists.
+  const now = new Date();
+  const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const monthPending = (planTasks ?? []).filter((x) => x.month === thisMonth && !x.done);
+
+  // Mark a plan task done right from the card — same optimistic pattern as year-plan.
+  const togglePlanDone = useMutation({
+    mutationFn: (task: PlanTask) => apiMutate("PATCH", `/plan-tasks/${task.id}`, { done: !task.done }),
+    onMutate: async (task) => {
+      await qc.cancelQueries({ queryKey: ["plan-tasks"] });
+      qc.setQueryData<PlanTask[]>(["plan-tasks"], (old = []) =>
+        old.map((x) => (x.id === task.id ? { ...x, done: !x.done } : x)),
+      );
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["plan-tasks"] }),
   });
 
   const { data: recentAds, isLoading: adsLoading } = useQuery<RecentAd[]>({
@@ -308,6 +340,47 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
+          )}
+
+          {/* This month's Year Plan tasks — hidden until a plan exists */}
+          {monthPending.length > 0 && (
+            <Link href="/year-plan" className="block">
+              <div className="bg-card rounded-2xl border border-border/60 shadow-sm p-4 active:bg-muted/50 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 shrink-0 rounded-full flex items-center justify-center bg-primary/10">
+                    <CalendarCheck className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-foreground leading-tight">{t("home.planTitle")}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {t("home.planPending", { n: monthPending.length })}
+                    </p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground/50 shrink-0" />
+                </div>
+                <ul className="mt-3 space-y-1.5">
+                  {monthPending.slice(0, 3).map((task) => (
+                    <li key={task.id} className="flex items-center gap-2 text-sm text-foreground/80 min-w-0">
+                      <button
+                        type="button"
+                        className="shrink-0 -m-1 p-1"
+                        aria-label={task.title}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          togglePlanDone.mutate(task);
+                        }}
+                      >
+                        {task.done
+                          ? <CheckCircle2 className="w-5 h-5 text-primary" />
+                          : <Circle className="w-5 h-5 text-muted-foreground/50" />}
+                      </button>
+                      <span className="truncate">{task.title}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </Link>
           )}
 
           {/* Recent ads posted by people across the community boards */}

@@ -32,22 +32,26 @@ export default function ProfilePage() {
   const { activeEstateId, setActiveEstate } = useEstate();
 
   // ── Contact phone (stored on the farm profile) ──
-  const { data: farmProfile } = useQuery<{ contactPhone: string | null }>({
+  const { data: farmProfile } = useQuery<{ contactPhone: string | null; alternatePhone: string | null }>({
     queryKey: ["farm-profile"],
     queryFn: () => apiFetch("/farm/profile"),
   });
   const [phone, setPhone] = useState("");
+  const [altPhone, setAltPhone] = useState("");
   const [phoneDirty, setPhoneDirty] = useState(false);
   const [savingPhone, setSavingPhone] = useState(false);
 
   useEffect(() => {
-    if (!phoneDirty && farmProfile) setPhone(farmProfile.contactPhone ?? "");
+    if (!phoneDirty && farmProfile) {
+      setPhone(farmProfile.contactPhone ?? "");
+      setAltPhone(farmProfile.alternatePhone ?? "");
+    }
   }, [farmProfile, phoneDirty]);
 
   async function savePhone() {
     setSavingPhone(true);
     try {
-      const result = await apiMutate("PATCH", "/farm/profile", { contactPhone: phone.trim() });
+      const result = await apiMutate("PATCH", "/farm/profile", { contactPhone: phone.trim(), alternatePhone: altPhone.trim() || null });
       await qc.invalidateQueries({ queryKey: ["farm-profile"] });
       setPhoneDirty(false);
       // apiMutate returns null when the change was queued offline — be honest about it.
@@ -248,7 +252,7 @@ export default function ProfilePage() {
             <div className="flex-1">
               <h2 className="font-semibold text-gray-800">{t("profile.phone")}</h2>
               <p className="text-sm text-gray-500 mt-0.5">{t("profile.phoneHint")}</p>
-              <div className="mt-3 flex gap-2">
+              <div className="mt-3 space-y-2">
                 <Input
                   value={phone}
                   onChange={(e) => { setPhone(e.target.value); setPhoneDirty(true); }}
@@ -257,10 +261,23 @@ export default function ProfilePage() {
                   maxLength={20}
                   className="rounded-xl h-11"
                 />
+                <div>
+                  <Label htmlFor="alt-phone" className="text-xs text-gray-500">{t("profile.altPhone")}</Label>
+                  <Input
+                    id="alt-phone"
+                    value={altPhone}
+                    onChange={(e) => { setAltPhone(e.target.value); setPhoneDirty(true); }}
+                    placeholder="98765 43210"
+                    inputMode="tel"
+                    maxLength={20}
+                    className="rounded-xl h-11 mt-1"
+                  />
+                  <p className="mt-1 text-xs text-gray-400">{t("profile.altPhoneHint")}</p>
+                </div>
                 <Button
                   onClick={savePhone}
                   disabled={savingPhone || !phoneDirty}
-                  className="rounded-xl h-11 bg-primary hover:bg-primary/90 text-primary-foreground px-4"
+                  className="w-full rounded-xl h-11 bg-primary hover:bg-primary/90 text-primary-foreground px-4"
                 >
                   {savingPhone ? <Loader2 className="w-4 h-4 animate-spin" /> : t("profile.save")}
                 </Button>

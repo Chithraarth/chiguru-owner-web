@@ -47,9 +47,12 @@ interface CurrentSubscription {
 interface SubscriptionMe {
   subscription: CurrentSubscription | null;
   entitlement: { managerLimit: number; managersUsed: number; remainingManagers: number };
-  sharePlatforms: string | null;
-  shareRewardClaimedAt: string | null;
-  freeMonthPending: boolean;
+}
+
+interface WalletMe {
+  balance: number;
+  share: { target: number; reward: number; platforms: string[]; rewarded: boolean };
+  transactions: { id: number; type: string; feature: string | null; amount: string; createdAt: string }[];
 }
 
 interface Payment {
@@ -134,9 +137,15 @@ export default function Subscription() {
     queryFn: () => apiFetch("/payments"),
   });
 
+  const { data: wallet } = useQuery<WalletMe>({
+    queryKey: ["wallet"],
+    queryFn: () => apiFetch("/wallet"),
+  });
+
   const invalidateAll = () => {
     qc.invalidateQueries({ queryKey: ["subscription-me"] });
     qc.invalidateQueries({ queryKey: ["payments"] });
+    qc.invalidateQueries({ queryKey: ["wallet"] });
   };
 
   async function subscribe(plan: Plan) {
@@ -223,10 +232,10 @@ export default function Subscription() {
     }
     setBusyShare(opt.id);
     try {
-      const res = await apiMutate<{ rewardGranted?: boolean }>("POST", "/subscriptions/share", { platform: opt.id });
+      const res = await apiMutate<{ creditGiven?: boolean; balance?: number }>("POST", "/wallet/share", { platform: opt.id });
       invalidateAll();
-      if (res?.rewardGranted) {
-        toast({ title: "1 month free!", description: "Thanks for spreading the word about Chiguru." });
+      if (res?.creditGiven) {
+        toast({ title: "₹300 wallet credit!", description: "Thanks for spreading the word about Chiguru." });
       }
     } catch {
       toast({ title: "Couldn't record your share — try again", variant: "destructive" });
@@ -238,10 +247,9 @@ export default function Subscription() {
   const plans = plansData?.plans ?? [];
   const sub = me?.subscription ?? null;
   const isActive = sub?.status === "ACTIVE" || sub?.status === "GRACE_PERIOD";
-  const shared = new Set((me?.sharePlatforms ?? "").split(",").filter(Boolean));
-  const shareClaimed = !!me?.shareRewardClaimedAt;
+  const shared = new Set(wallet?.share.platforms ?? []);
+  const shareClaimed = !!wallet?.share.rewarded;
   const shareCount = Math.min(shared.size, SHARE_TARGET);
-  const freeMonthPending = !!me?.freeMonthPending;
 
   const busy = flow === "creating" || flow === "opening_checkout" || flow === "verifying";
 
@@ -311,20 +319,18 @@ export default function Subscription() {
               </section>
             )}
 
-            {/* Share on 3 apps → 1 month free */}
+            {/* Share on 3 apps → ₹300 wallet credit */}
             <section className="rounded-2xl p-4 border-2 border-emerald-200 bg-emerald-50/60">
               <div className="flex items-center gap-2">
                 {shareClaimed ? <PartyPopper className="h-5 w-5 text-emerald-600" /> : <Share2 className="h-5 w-5 text-emerald-600" />}
-                <h2 className="font-bold text-gray-900">{shareClaimed ? "Free month claimed!" : "Share on 3 apps → 1 month FREE"}</h2>
+                <h2 className="font-bold text-gray-900">{shareClaimed ? "₹300 wallet credit claimed!" : "Share on 3 apps → ₹300 wallet credit"}</h2>
               </div>
               {shareClaimed ? (
-                <p className="text-sm text-gray-600 mt-1">
-                  Thanks for sharing Chiguru{isActive ? "." : freeMonthPending ? " — your free month applies the moment you pick a plan below." : "."}
-                </p>
+                <p className="text-sm text-gray-600 mt-1">Thanks for sharing Chiguru — ₹300 has been added to your wallet.</p>
               ) : (
                 <>
                   <p className="text-sm text-gray-600 mt-1">
-                    Post about Chiguru on any 3 different apps and get 1 month free (applied to your first plan if you haven't subscribed yet).
+                    Post about Chiguru on any 3 different apps and get ₹300 credited to your wallet (used for AI features like disease check and the crop advisor).
                   </p>
                   <div className="mt-2 flex items-center gap-1.5">
                     {Array.from({ length: SHARE_TARGET }).map((_, i) => (

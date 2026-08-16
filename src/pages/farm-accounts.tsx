@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import {
-  Banknote, Leaf, BarChart3, Users, Camera
+  Banknote, Leaf, BarChart3, Users, Camera, Archive
 } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { useT } from "@/lib/i18n";
@@ -9,8 +9,10 @@ const ACCOUNTS = [
   { href: "/expenses", icon: Banknote, key: "home.expenses", chip: "bg-[#E9E6FB] text-[#6C5DD3]" },
   { href: "/harvests", icon: Leaf, key: "home.harvest", chip: "bg-[#D5F1EE] text-[#1F9E92]" },
   { href: "/reports", icon: BarChart3, key: "home.reports", chip: "bg-[#F3DBF5] text-[#B45BC7]" },
-  { href: "/labour-records", icon: Users, key: "farmAcct.labour", chip: "bg-[#E2E8FA] text-[#4F63D2]" },
+  { href: "/labour-attendance", icon: Users, key: "farmAcct.labourAttendance", chip: "bg-[#D5F1EE] text-[#1F9E92]" },
+  { href: "/labour-payments", icon: Banknote, key: "farmAcct.labourPay", chip: "bg-[#E2E8FA] text-[#4F63D2]" },
   { href: "/loans", icon: Banknote, key: "more.loans", chip: "bg-[#FBE3E8] text-[#D4526E]" },
+  { href: "/old-ledger", icon: Archive, key: "farmAcct.oldLedger", chip: "bg-[#FBF0DB] text-[#C08A2D]" },
 ];
 
 export default function FarmAccounts() {

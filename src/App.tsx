@@ -21,13 +21,17 @@ import { TermsPage, PrivacyPage, DeleteAccountPage } from "@/pages/legal";
 const Dashboard = lazyWithReload(() => import("@/pages/dashboard"));
 const HelpPage = lazyWithReload(() => import("@/pages/help"));
 const Onboarding = lazyWithReload(() => import("@/pages/onboarding"));
+const WelcomePage = lazyWithReload(() => import("@/pages/welcome"));
 const Workers = lazyWithReload(() => import("@/pages/workers"));
 const LabourRecords = lazyWithReload(() => import("@/pages/labour-records"));
+const LabourAttendance = lazyWithReload(() => import("@/pages/labour-attendance"));
+const OldLedger = lazyWithReload(() => import("@/pages/old-ledger"));
 const WorkGroups = lazyWithReload(() => import("@/pages/work-groups"));
 const AttendancePage = lazyWithReload(() => import("@/pages/attendance"));
 const Expenses = lazyWithReload(() => import("@/pages/expenses"));
 const Sprays = lazyWithReload(() => import("@/pages/sprays"));
 const Harvests = lazyWithReload(() => import("@/pages/harvests"));
+const YearPlan = lazyWithReload(() => import("@/pages/year-plan"));
 const Crops = lazyWithReload(() => import("@/pages/crops"));
 const Loans = lazyWithReload(() => import("@/pages/loans"));
 const Reports = lazyWithReload(() => import("@/pages/reports"));
@@ -98,14 +102,19 @@ function Router() {
       <Switch>
         <Route path="/" component={Dashboard} />
         <Route path="/onboarding" component={Onboarding} />
+        <Route path="/welcome" component={WelcomePage} />
         <Route path="/workers" component={Workers} />
         <Route path="/labour-records" component={LabourRecords} />
+        <Route path="/labour-payments" component={LabourRecords} />
+        <Route path="/labour-attendance" component={LabourAttendance} />
+        <Route path="/old-ledger" component={OldLedger} />
         <Route path="/work-groups" component={WorkGroups} />
         <Route path="/work-groups/:id/attendance" component={AttendancePage} />
         <Route path="/crops" component={Crops} />
         <Route path="/expenses" component={Expenses} />
         <Route path="/sprays" component={Sprays} />
         <Route path="/harvests" component={Harvests} />
+        <Route path="/year-plan" component={YearPlan} />
         <Route path="/loans" component={Loans} />
         <Route path="/reports" component={Reports} />
         <Route path="/agri-ai" component={AgriAI} />

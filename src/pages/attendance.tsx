@@ -25,9 +25,10 @@ interface WorkGroup {
   advancePerUnit?: number; payFrequency?: string;
   seasonClosed?: boolean; seasonSummary?: string;
   loanTaken?: number | string | null; loanNotes?: string | null;
+  harvestThresholdKg?: number | string | null; harvestBonusPerKg?: number | string | null;
 }
 interface Worker { id: number; name: string; type: string; wageRate: number; wageUnit: string; isActive: boolean; faceDescriptor?: string | null }
-interface Attendance { id: number; workerId: number; workerName?: string; date: string; hoursWorked: number; wageAmount: number; createdAt?: string }
+interface Attendance { id: number; workerId: number; workerName?: string; date: string; hoursWorked: number; overtimeHours?: number | null; overtimeRate?: number | null; wageAmount: number; harvestedKg?: number | null; harvestCrop?: string | null; createdAt?: string }
 interface AdvancePayment {
   id: number; workGroupId: number; paymentDate: string; periodLabel: string;
   daysCount: number; workerCount: number; advancePerWorkerPerDay: number;
@@ -88,7 +89,20 @@ export default function AttendancePage() {
   const [selectedWorkers, setSelectedWorkers] = useState<Set<number>>(new Set());
   const [confirmRemoveWorker, setConfirmRemoveWorker] = useState<Worker | null>(null);
   const [hours, setHours] = useState("8");
+  const [otHours, setOtHours] = useState("0");
+  const [otRate, setOtRate] = useState("");
+  // Per-person overtime (mirrors harvest picking): toggle on, then type each
+  // person's extra hours next to their name — only they get overtime pay.
+  const [otMode, setOtMode] = useState(false);
+  const [otPerWorker, setOtPerWorker] = useState<Record<number, string>>({});
   const [totalPeople, setTotalPeople] = useState("");
+  // Harvest picking: kg weighed per person + the group's bonus rule
+  // (threshold kg per person, extra pay per kg above it) set at weighing time.
+  const [pickMode, setPickMode] = useState(false);
+  const [pickKg, setPickKg] = useState<Record<number, string>>({});
+  const [pickThreshold, setPickThreshold] = useState("");
+  const [pickBonus, setPickBonus] = useState("");
+  const [pickCrop, setPickCrop] = useState("");
   const [paymentForm, setPaymentForm] = useState({ periodLabel: "", daysCount: "", workerCount: "", advancePerWorkerPerDay: "", paymentDate: today, notes: "" });
   const [loanForm, setLoanForm] = useState({ amount: "", issuedDate: today, notes: "" });
   const [loanWorker, setLoanWorker] = useState<{ name: string; id: number | null }>({ name: "", id: null });
@@ -116,6 +130,12 @@ export default function AttendancePage() {
     queryFn: () => apiFetch("/workers"),
   });
 
+  // Crops list for the harvest-picking "which crop?" selector.
+  const { data: crops = [] } = useQuery<{ id: number; name: string }[]>({
+    queryKey: ["crops"],
+    queryFn: () => apiFetch("/crops"),
+  });
+
   const { data: attendance = [], isLoading: attLoading } = useQuery<Attendance[]>({
     queryKey: ["attendance", groupId, selectedDate],
     queryFn: () => apiFetch(`/attendance?workGroupId=${groupId}&date=${selectedDate}`),
@@ -126,6 +146,16 @@ export default function AttendancePage() {
     queryFn: () => apiFetch(`/work-groups/${groupId}/sessions?date=${selectedDate}`),
   });
   const session = sessions[0] ?? null;
+
+  const { data: otSummary } = useQuery<{ overtimeSettlement: string; pendingHours: number; pendingAmount: number; clearedAmount: number }>({
+    queryKey: ["overtime-summary", groupId],
+    queryFn: () => apiFetch(`/work-groups/${groupId}/overtime-summary`),
+  });
+
+  const { data: pickSummary } = useQuery<{ harvestBonusSettlement: string; pendingKg: number; pendingAmount: number; clearedAmount: number }>({
+    queryKey: ["harvest-bonus-summary", groupId],
+    queryFn: () => apiFetch(`/work-groups/${groupId}/harvest-bonus-summary`),
+  });
 
   const { data: advancePayments = [], isLoading: apLoading } = useQuery<AdvancePayment[]>({
     queryKey: ["advance-payments", groupId],
@@ -141,9 +171,52 @@ export default function AttendancePage() {
     mutationFn: (data: Record<string, unknown>) => apiMutate("POST", "/attendance", data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["attendance", groupId] });
+      qc.invalidateQueries({ queryKey: ["overtime-summary", groupId] });
+      qc.invalidateQueries({ queryKey: ["harvest-bonus-summary", groupId] });
       setShowAddForm(false);
       setSelectedWorkers(new Set());
+      setOtHours("0");
+      setOtRate("");
+      setPickMode(false);
+      setPickKg({});
+      setPickCrop("");
+      setOtMode(false);
+      setOtPerWorker({});
       toast({ title: "Attendance saved" });
+    },
+  });
+
+  const settleOvertime = useMutation({
+    mutationFn: (clientId: string) => apiMutate("POST", `/work-groups/${groupId}/overtime/settle`, { clientId }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["overtime-summary", groupId] });
+      qc.invalidateQueries({ queryKey: ["advance-payments", groupId] });
+      toast({ title: "Overtime marked as paid" });
+    },
+  });
+
+  const setOtSettlement = useMutation({
+    mutationFn: (mode: string) => apiMutate("PATCH", `/work-groups/${groupId}`, { overtimeSettlement: mode }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["overtime-summary", groupId] });
+      qc.invalidateQueries({ queryKey: ["work-group", groupId] });
+    },
+  });
+
+  const settlePickBonus = useMutation({
+    mutationFn: (clientId: string) => apiMutate("POST", `/work-groups/${groupId}/harvest-bonus/settle`, { clientId }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["harvest-bonus-summary", groupId] });
+      qc.invalidateQueries({ queryKey: ["advance-payments", groupId] });
+      toast({ title: "Picking bonus marked as paid" });
+    },
+  });
+
+  const setPickSettlement = useMutation({
+    mutationFn: (mode: string) => apiMutate("PATCH", `/work-groups/${groupId}`, { harvestBonusSettlement: mode }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["harvest-bonus-summary", groupId] });
+      qc.invalidateQueries({ queryKey: ["work-group", groupId] });
     },
   });
 
@@ -400,15 +473,46 @@ export default function AttendancePage() {
     const rate = group ? Number(group.rate) : 0;
     const h = parseFloat(hours) || 8;
     const wage = group?.paymentType === "Per hour" ? rate * h : rate;
+    // Harvest-picking bonus rule (set/updated by owner or manager at weighing
+    // time): pay pickBonus extra for every kg above pickThreshold per person.
+    const threshold = Math.max(0, parseFloat(pickThreshold) || 0);
+    const bonusPerKg = Math.max(0, parseFloat(pickBonus) || 0);
+    if (pickMode && (threshold !== Number(group?.harvestThresholdKg ?? 0) || bonusPerKg !== Number(group?.harvestBonusPerKg ?? 0))) {
+      try {
+        await apiMutate("PATCH", `/work-groups/${groupId}`, {
+          harvestThresholdKg: threshold > 0 ? String(threshold) : null,
+          harvestBonusPerKg: bonusPerKg > 0 ? String(bonusPerKg) : null,
+        });
+        qc.invalidateQueries({ queryKey: ["work-group", groupId] });
+      } catch {
+        toast({ title: "Could not save the picking bonus rule, but attendance will still be saved", variant: "destructive" });
+      }
+    }
+    // Overtime is paid per hour, at the rate the owner types in. If left
+    // blank, it falls back to the group's hourly rate (day rate ÷ 8 for
+    // per-day groups).
+    const defaultOtRate = group?.paymentType === "Per hour" ? rate : rate / 8;
     for (const wId of selectedWorkers) {
       const worker = workers.find((w) => w.id === wId);
       if (!worker) continue;
+      const base = wage || Number(worker.wageRate);
+      const perHour = Math.max(0, parseFloat(otRate) || 0) || defaultOtRate || Number(worker.wageRate) / 8;
+      const kg = pickMode ? Math.max(0, parseFloat(pickKg[wId] ?? "") || 0) : 0;
+      // Extra money for kg picked above the per-person threshold.
+      const pickExtra = kg > 0 && threshold > 0 && bonusPerKg > 0 ? Math.max(0, kg - threshold) * bonusPerKg : 0;
+      // Per-person overtime hours (typed next to the name); only workers with
+      // hours entered get overtime pay.
+      const wOt = otMode ? Math.max(0, parseFloat(otPerWorker[wId] ?? "") || 0) : Math.max(0, parseFloat(otHours) || 0);
       await createAtt.mutateAsync({
         workGroupId: groupId,
         workerId: wId,
         date: selectedDate,
         hoursWorked: h,
-        wageAmount: wage || Number(worker.wageRate),
+        overtimeHours: wOt > 0 ? wOt : undefined,
+        overtimeRate: wOt > 0 ? Math.round(perHour * 100) / 100 : undefined,
+        harvestedKg: kg > 0 ? kg : undefined,
+        harvestCrop: pickMode && kg > 0 && pickCrop.trim() !== "" ? pickCrop.trim() : undefined,
+        wageAmount: Math.round((base + wOt * perHour + pickExtra) * 100) / 100,
         deviceLabel: "Owner",
       });
     }
@@ -463,6 +567,7 @@ export default function AttendancePage() {
     attendance.filter((a) => a.createdAt).map((a) => [a.workerId, a.createdAt as string]),
   );
   const todayWage = attendance.reduce((s, a) => s + Number(a.wageAmount), 0);
+  const todayKg = attendance.reduce((s, a) => s + Number(a.harvestedKg ?? 0), 0);
 
   const totalAdvancePaid = advancePayments.reduce((s, p) => s + Number(p.totalAdvancePaid), 0);
   const advancePerDay = group?.advancePerUnit ? Number(group.advancePerUnit) : 0;
@@ -720,6 +825,12 @@ export default function AttendancePage() {
                   <p className="text-xs text-gray-500">Workers today</p>
                   <p className="text-xl font-bold text-gray-800">{attendance.length}</p>
                 </div>
+                {todayKg > 0 && (
+                  <div className="text-center">
+                    <p className="text-xs text-gray-500">Picked today</p>
+                    <p className="text-xl font-bold text-emerald-600">{todayKg.toLocaleString("en-IN")} kg</p>
+                  </div>
+                )}
                 <div className="text-right">
                   <p className="text-xs text-gray-500">Labour cost</p>
                   <p className="text-xl font-bold text-primary">
@@ -794,6 +905,94 @@ export default function AttendancePage() {
                 <TrendingDown className="h-8 w-8 mx-auto text-gray-300 mb-1" />
                 <p className="text-xs text-gray-400">No advance setup for this group</p>
                 <p className="text-xs text-gray-300 mt-0.5">Edit the group to add advance payment settings</p>
+              </div>
+            )}
+
+            {/* Overtime money status */}
+            {otSummary && (otSummary.pendingAmount > 0 || otSummary.clearedAmount > 0) && (
+              <div className="bg-amber-50 rounded-xl p-3 border border-amber-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-amber-800">Overtime payment</p>
+                  {otSummary.pendingAmount > 0 ? (
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-800">Pending</span>
+                  ) : (
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Cleared ✓</span>
+                  )}
+                </div>
+                {otSummary.pendingAmount > 0 && (
+                  <p className="text-sm text-amber-900">
+                    <span className="font-bold">{fmtMoney(otSummary.pendingAmount)}</span> pending for {otSummary.pendingHours} overtime hr{otSummary.pendingHours !== 1 ? "s" : ""}
+                  </p>
+                )}
+                {otSummary.clearedAmount > 0 && (
+                  <p className="text-xs text-amber-700">{fmtMoney(otSummary.clearedAmount)} overtime already paid out</p>
+                )}
+                <div>
+                  <Label className="text-[11px] text-amber-700">Settle overtime</Label>
+                  <select
+                    value={otSummary.overtimeSettlement}
+                    onChange={(e) => setOtSettlement.mutate(e.target.value)}
+                    className="mt-1 w-full border border-amber-200 bg-white rounded-lg px-3 py-2 text-sm"
+                  >
+                    <option value="weekly">Weekly — with each payment</option>
+                    <option value="monthly">Monthly — payments clear finished months</option>
+                    <option value="final">In the final season account</option>
+                  </select>
+                </div>
+                {otSummary.pendingAmount > 0 && (
+                  <Button
+                    onClick={() => settleOvertime.mutate(crypto.randomUUID())}
+                    disabled={settleOvertime.isPending}
+                    variant="outline"
+                    className="w-full h-10 border-amber-300 text-amber-800 rounded-lg text-sm"
+                  >
+                    {settleOvertime.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Mark overtime as paid now"}
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {/* Picking bonus money status */}
+            {pickSummary && (pickSummary.pendingAmount > 0 || pickSummary.clearedAmount > 0) && (
+              <div className="bg-emerald-50 rounded-xl p-3 border border-emerald-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-emerald-800">Picking bonus payment</p>
+                  {pickSummary.pendingAmount > 0 ? (
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-800">Pending</span>
+                  ) : (
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Cleared ✓</span>
+                  )}
+                </div>
+                {pickSummary.pendingAmount > 0 && (
+                  <p className="text-sm text-emerald-900">
+                    <span className="font-bold">{fmtMoney(pickSummary.pendingAmount)}</span> pending for {pickSummary.pendingKg.toLocaleString("en-IN")} kg picked
+                  </p>
+                )}
+                {pickSummary.clearedAmount > 0 && (
+                  <p className="text-xs text-emerald-700">{fmtMoney(pickSummary.clearedAmount)} bonus already paid out</p>
+                )}
+                <div>
+                  <Label className="text-[11px] text-emerald-700">Settle picking bonus</Label>
+                  <select
+                    value={pickSummary.harvestBonusSettlement}
+                    onChange={(e) => setPickSettlement.mutate(e.target.value)}
+                    className="mt-1 w-full border border-emerald-200 bg-white rounded-lg px-3 py-2 text-sm"
+                  >
+                    <option value="weekly">Weekly — with each payment</option>
+                    <option value="monthly">Monthly — payments clear finished months</option>
+                    <option value="final">In the final season account</option>
+                  </select>
+                </div>
+                {pickSummary.pendingAmount > 0 && (
+                  <Button
+                    onClick={() => settlePickBonus.mutate(crypto.randomUUID())}
+                    disabled={settlePickBonus.isPending}
+                    variant="outline"
+                    className="w-full h-10 border-emerald-300 text-emerald-800 rounded-lg text-sm"
+                  >
+                    {settlePickBonus.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Mark picking bonus as paid now"}
+                  </Button>
+                )}
               </div>
             )}
 
@@ -1093,7 +1292,7 @@ export default function AttendancePage() {
           <div className="bg-white rounded-t-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-gray-800">Mark Attendance</h2>
-              <button onClick={() => { setShowAddForm(false); setAiResult(null); }}><X className="h-5 w-5 text-gray-500" /></button>
+              <button onClick={() => { setShowAddForm(false); setAiResult(null); setPickMode(false); setPickKg({}); setPickCrop(""); setOtMode(false); setOtPerWorker({}); }}><X className="h-5 w-5 text-gray-500" /></button>
             </div>
 
             {(aiScanning || aiResult) && (
@@ -1161,6 +1360,92 @@ export default function AttendancePage() {
               <Label className="text-xs text-gray-500">Hours worked</Label>
               <Input value={hours} onChange={(e) => setHours(e.target.value)} type="number" step="0.5" min="0.5" max="12" className="mt-1" />
             </div>
+            {/* ── Overtime (per-person hours, like harvest picking) ── */}
+            <div className={`rounded-xl border p-3 ${otMode ? "bg-amber-50/60 border-amber-200" : "border-gray-200"}`}>
+              <button
+                type="button"
+                onClick={() => {
+                  const on = !otMode;
+                  setOtMode(on);
+                  if (!on) { setOtPerWorker({}); setOtRate(""); }
+                }}
+                className="w-full flex items-center justify-between"
+              >
+                <span className="text-sm font-semibold text-gray-700">Overtime today?</span>
+                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${otMode ? "bg-amber-500 text-white" : "bg-gray-100 text-gray-500"}`}>
+                  {otMode ? "Yes" : "No"}
+                </span>
+              </button>
+              {otMode && (
+                <div className="mt-3 space-y-2">
+                  <div>
+                    <Label className="text-xs text-gray-500">Overtime pay (per hour)</Label>
+                    <Input
+                      value={otRate}
+                      onChange={(e) => setOtRate(e.target.value)}
+                      type="number"
+                      step="1"
+                      min="0"
+                      placeholder={String(Math.round(((group?.paymentType === "Per hour" ? Number(group?.rate ?? 0) : Number(group?.rate ?? 0) / 8) || 0) * 100) / 100)}
+                      className="mt-1 bg-white"
+                    />
+                  </div>
+                  <p className="text-[11px] text-amber-700">
+                    Type the overtime hours next to each person who stayed longer — only they get the extra pay. Others stay at normal wage.
+                  </p>
+                </div>
+              )}
+            </div>
+            {/* ── Harvest picking (kg weighed per person + bonus rule) ── */}
+            <div className={`rounded-xl border p-3 ${pickMode ? "bg-emerald-50/60 border-emerald-200" : "border-gray-200"}`}>
+              <button
+                type="button"
+                onClick={() => {
+                  const on = !pickMode;
+                  setPickMode(on);
+                  if (on) {
+                    setPickThreshold(group?.harvestThresholdKg != null ? String(Number(group.harvestThresholdKg)) : "");
+                    setPickBonus(group?.harvestBonusPerKg != null ? String(Number(group.harvestBonusPerKg)) : "");
+                  }
+                }}
+                className="w-full flex items-center justify-between"
+              >
+                <span className="text-sm font-semibold text-gray-700">Harvest picking today?</span>
+                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${pickMode ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-500"}`}>
+                  {pickMode ? "Yes — weighing" : "No"}
+                </span>
+              </button>
+              {pickMode && (
+                <div className="mt-3 space-y-2">
+                  <div>
+                    <Label className="text-xs text-gray-500">Which crop did they pick?</Label>
+                    <div className="mt-1">
+                      <SelectOrType
+                        options={crops.map((c) => c.name)}
+                        value={pickCrop}
+                        onChange={setPickCrop}
+                        placeholder="Select crop"
+                        typePlaceholder="Type crop name…"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs text-gray-500">Target per person (kg)</Label>
+                      <Input value={pickThreshold} onChange={(e) => setPickThreshold(e.target.value)} type="number" step="1" min="0" placeholder="e.g. 80" className="mt-1 bg-white" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-500">Extra pay per kg above ({curSymbol()})</Label>
+                      <Input value={pickBonus} onChange={(e) => setPickBonus(e.target.value)} type="number" step="0.5" min="0" placeholder="e.g. 5" className="mt-1 bg-white" />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-emerald-700">
+                    Type each person's weighed kg next to their name below. Anyone above{" "}
+                    {parseFloat(pickThreshold) > 0 ? `${parseFloat(pickThreshold)} kg` : "the target"} gets the extra pay added automatically.
+                  </p>
+                </div>
+              )}
+            </div>
             <div>
               <Label className="text-xs text-gray-500">Total people working</Label>
               <Input
@@ -1175,6 +1460,9 @@ export default function AttendancePage() {
             </div>
             <div>
               <Label className="text-xs text-gray-500 mb-2 block">Select workers {aiResult ? <span className="text-primary font-semibold">(AI pre-selected {selectedWorkers.size})</span> : ""}</Label>
+              <p className="text-[11px] text-gray-400 -mt-1 mb-2">
+                Already-marked workers can be selected again to update their day — e.g. add picked kg or overtime after work is done. The new values replace the old ones.
+              </p>
               {activeWorkers.length === 0 ? (
                 <p className="text-sm text-gray-400 text-center py-3">No workers added yet</p>
               ) : (
@@ -1186,13 +1474,12 @@ export default function AttendancePage() {
                       <div
                         key={w.id}
                         className={`w-full flex items-center rounded-xl border transition-colors ${
-                          alreadyPresent ? "bg-primary/5 border-primary/20 opacity-60"
-                            : selected ? "bg-primary/10 border-primary"
+                          selected ? "bg-primary/10 border-primary"
+                            : alreadyPresent ? "bg-primary/5 border-primary/20"
                             : "bg-white border-gray-200 hover:border-primary/30"
                         }`}
                       >
                         <button
-                          disabled={alreadyPresent}
                           onClick={() => toggleWorker(w.id)}
                           className="flex-1 flex items-center justify-between pl-4 pr-2 py-3 min-w-0"
                         >
@@ -1209,6 +1496,32 @@ export default function AttendancePage() {
                           </div>
                           <span className="text-xs text-gray-500 flex-shrink-0">{fmtMoney(Number(w.wageRate))}/{w.wageUnit}</span>
                         </button>
+                        {pickMode && selected && (
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            min="0"
+                            step="0.5"
+                            placeholder="kg"
+                            value={pickKg[w.id] ?? ""}
+                            onChange={(e) => setPickKg((m) => ({ ...m, [w.id]: e.target.value }))}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-16 flex-shrink-0 border border-emerald-300 bg-white rounded-lg px-2 py-1.5 text-sm text-center"
+                          />
+                        )}
+                        {otMode && selected && (
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            min="0"
+                            step="0.5"
+                            placeholder="OT hr"
+                            value={otPerWorker[w.id] ?? ""}
+                            onChange={(e) => setOtPerWorker((m) => ({ ...m, [w.id]: e.target.value }))}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-16 flex-shrink-0 border border-amber-300 bg-white rounded-lg px-2 py-1.5 text-sm text-center ml-1"
+                          />
+                        )}
                         <button
                           aria-label={`Remove ${w.name}`}
                           onClick={() => setConfirmRemoveWorker(w)}
@@ -1222,14 +1535,23 @@ export default function AttendancePage() {
                 </div>
               )}
             </div>
-            {selectedWorkers.size > 0 && (
-              <div className="bg-primary/5 rounded-xl p-3">
-                <p className="text-sm text-primary">
-                  {selectedWorkers.size} worker{selectedWorkers.size > 1 ? "s" : ""} ·{" "}
-                  {fmtMoney(selectedWorkers.size * (group?.paymentType === "Per hour" ? Number(group.rate) * parseFloat(hours || "8") : Number(group?.rate ?? 0)))} total
-                </p>
-              </div>
-            )}
+            {selectedWorkers.size > 0 && (() => {
+              const baseEach = group?.paymentType === "Per hour" ? Number(group.rate) * parseFloat(hours || "8") : Number(group?.rate ?? 0);
+              const perHr = Math.max(0, parseFloat(otRate) || 0) || (group?.paymentType === "Per hour" ? Number(group?.rate ?? 0) : Number(group?.rate ?? 0) / 8);
+              const otTotalHrs = otMode
+                ? [...selectedWorkers].reduce((s, id) => s + Math.max(0, parseFloat(otPerWorker[id] ?? "") || 0), 0)
+                : 0;
+              const otCount = otMode ? [...selectedWorkers].filter((id) => (parseFloat(otPerWorker[id] ?? "") || 0) > 0).length : 0;
+              return (
+                <div className="bg-primary/5 rounded-xl p-3">
+                  <p className="text-sm text-primary">
+                    {selectedWorkers.size} worker{selectedWorkers.size > 1 ? "s" : ""} ·{" "}
+                    {fmtMoney(selectedWorkers.size * baseEach + otTotalHrs * perHr)} total
+                    {otCount > 0 && <> · {otCount} with overtime ({otTotalHrs} hr × {fmtMoney(perHr)})</>}
+                  </p>
+                </div>
+              );
+            })()}
             <Button
               onClick={saveAttendance}
               disabled={selectedWorkers.size === 0 || createAtt.isPending}

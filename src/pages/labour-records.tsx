@@ -1,15 +1,17 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Users, Calendar, Banknote, Wallet, CreditCard, Scale, Send, Trash2 } from "lucide-react";
+import { Users, Calendar, Banknote, Wallet, CreditCard, Scale, Send, Trash2, ChevronRight, CheckCircle2 } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { GroupFolderList, buildGroupIds } from "@/components/group-folders";
 import { apiFetch, apiMutate } from "@/lib/api";
 import { PaySheet } from "@/components/pay-sheet";
 import { useSubScreenHistory } from "@/hooks/use-sub-screen-history";
+import { useToast } from "@/hooks/use-toast";
 import { fmtMoney, curSymbol } from "@/lib/currency";
 
 interface AttendanceRecord {
   id: number;
+  workerId: number | null;
   workerName: string;
   workGroupId: number | null;
   workGroupName: string | null;
@@ -35,6 +37,8 @@ interface WorkGroup {
   rate?: string | number | null;
   advancePerUnit?: string | number | null;
   upiId?: string | null;
+  seasonClosed?: boolean;
+  clearedAt?: string | null;
 }
 
 interface WorkerPayment {
@@ -70,6 +74,26 @@ interface GroupLoan {
 }
 
 type ViewMode = "weekly" | "monthly" | "yearly" | "final";
+
+// Per-worker money summary from GET /workers/:id/money — shape matches the
+// backend's reference route (days worked, wages, loans, direct payments, net due).
+interface WorkerMoney {
+  workerId: number;
+  workerName: string;
+  upiId: string | null;
+  totalDays: number;
+  totalWage: number;
+  totalEarned: number;
+  lastWorkedDate: string | null;
+  loanTaken: number;
+  loanRepaid: number;
+  loanOutstanding: number;
+  paymentsTotal: number;
+  paymentsCount: number;
+  netDue: number;
+  payments: { id: number; amount: string; method: string; methodLabel: string | null; paymentDate: string; note: string | null }[];
+  loans: { id: number; amount: string; totalDue: string; repaidAmount: string; status: string; issuedDate: string }[];
+}
 
 function formatDate(dateStr: string) {
   const d = new Date(dateStr + "T00:00:00");
@@ -121,10 +145,21 @@ function yearKey(dateStr: string) {
 
 export default function LabourRecords() {
   const [openFolder, setOpenFolder] = useState<{ id: number | null; name: string } | null>(null);
+  const [openWorker, setOpenWorker] = useState<{ id: number; name: string } | null>(null);
   const [view, setView] = useState<ViewMode>("weekly");
   const [showPaySheet, setShowPaySheet] = useState(false);
   const qc = useQueryClient();
-  useSubScreenHistory(openFolder ? 1 : 0, () => setOpenFolder(null));
+  const { toast } = useToast();
+  useSubScreenHistory(
+    openFolder ? (openWorker ? 2 : 1) : 0,
+    () => (openWorker ? setOpenWorker(null) : setOpenFolder(null)),
+  );
+
+  const { data: workerMoney, isLoading: moneyLoading } = useQuery<WorkerMoney>({
+    queryKey: ["worker-money", openWorker?.id],
+    queryFn: () => apiFetch(`/workers/${openWorker!.id}/money`),
+    enabled: openWorker != null,
+  });
 
   const { data: records = [], isLoading } = useQuery<AttendanceRecord[]>({
     queryKey: ["attendance-all"],
@@ -166,8 +201,23 @@ export default function LabourRecords() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["worker-payments"] }),
   });
 
+  // Archive a fully-settled group into "Accounts history" (idempotent on the server).
+  const clearAccount = useMutation({
+    mutationFn: (id: number) => apiMutate("POST", `/work-groups/${id}/clear`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["work-groups"] });
+      toast({ title: "Account cleared", description: "Moved into Accounts history below." });
+      setOpenFolder(null);
+    },
+    onError: () => toast({ title: "Could not clear the account", variant: "destructive" }),
+  });
+
+  // Cleared groups live in "Accounts history" — view-only, out of the active list.
+  const clearedGroups = workGroups.filter((g) => g.clearedAt != null);
+  const clearedIds = new Set(clearedGroups.map((g) => g.id));
   // Folder list built automatically from Work Attendance groups (+ orphans).
-  const groupList = buildGroupIds(workGroups, records);
+  // Cleared groups are excluded here — this page shows them in history instead.
+  const groupList = buildGroupIds(workGroups, records).filter((g) => !clearedIds.has(g.id));
   const generalRecords = records.filter((r) => r.workGroupId == null);
   const folders = [
     ...groupList.map((g) => {
@@ -201,6 +251,7 @@ export default function LabourRecords() {
 
   // ── Settlement math (group folders only) ──────────────────────────────────
   const group = groupOpen ? workGroups.find((g) => g.id === openFolder!.id) : undefined;
+  const isCleared = group?.clearedAt != null;
   const groupRate = Number(group?.rate ?? 0);
   const isPerDay = (group?.paymentType ?? "").toLowerCase().includes("day");
 
@@ -223,6 +274,24 @@ export default function LabourRecords() {
   const loanOutstanding = groupLoans.reduce((s, l) => s + Math.max(0, Number(l.totalDue) - Number(l.repaidAmount)), 0);
   // Direct payments already made (settlements/weekly payouts) reduce the balance.
   const finalPayable = totalEarned - totalAdvances - loanOutstanding - paymentsTotal;
+
+  // ── "Payment due now" — owner pays on whichever day they choose (Sat, Wed…).
+  // Everything earned after the last recorded payment is what's due now.
+  const lastPaymentDate = [
+    ...payments.map((pm) => pm.paymentDate),
+    ...advances.map((a) => a.paymentDate),
+  ].sort().pop() ?? null;
+  // Business rule: a payment covers all work up to and including its date,
+  // so only work AFTER the last payment date is "due now".
+  const dueRecords = lastPaymentDate
+    ? folderRecords.filter((r) => r.date > lastPaymentDate)
+    : folderRecords;
+  const dueDays = dueRecords.length;
+  const dueEarned = dueRecords.reduce((s, r) => s + earnOf(r), 0);
+  // Advance-structure groups pay only the advance-per-day now; the rest is
+  // held for the Final Account. Other groups pay everything earned since.
+  const dueAdvance = dueDays * advPerDay;
+  const dueWages = hasAdvanceStructure ? dueAdvance : dueEarned;
 
   // ── Weekly / monthly / yearly rollups (wages, advances, loans by date) ────
   interface PeriodTotals { days: number; wages: number; advances: number; loans: number }
@@ -265,6 +334,161 @@ export default function LabourRecords() {
 
   const sortedDates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
 
+  // Distinct employees in this folder (for the per-person money drill-down).
+  const folderWorkers = (() => {
+    const map = new Map<number, { id: number; name: string; days: number; earned: number }>();
+    for (const r of folderRecords) {
+      if (r.workerId == null) continue;
+      const w = map.get(r.workerId) ?? { id: r.workerId, name: r.workerName, days: 0, earned: 0 };
+      w.days += 1;
+      w.earned += earnOf(r);
+      map.set(r.workerId, w);
+    }
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+  })();
+
+  // ── Per-employee money page (wages, loans, payments, net due) ────────────
+  if (openWorker != null) {
+    const m = workerMoney;
+    return (
+      <PageShell title={openWorker.name} onBack={() => setOpenWorker(null)}>
+        <div className="p-4 space-y-4">
+          {moneyLoading && (
+            <div className="flex items-center justify-center py-16">
+              <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
+
+          {m && (
+            <>
+              {/* Net balance — the one number for settling with this person */}
+              <div className={`rounded-2xl p-4 text-center ${m.netDue >= 0 ? "bg-primary/5 border border-primary/15" : "bg-red-50 border border-red-100"}`}>
+                <p className="text-xs font-semibold uppercase text-gray-500">
+                  {m.netDue >= 0 ? "Balance to pay" : "Employee owes (advance/loan exceeds earnings)"}
+                </p>
+                <p className={`text-3xl font-bold mt-1 ${m.netDue >= 0 ? "text-primary" : "text-red-600"}`}>
+                  {inr(Math.abs(m.netDue))}
+                </p>
+                {m.lastWorkedDate && (
+                  <p className="text-[11px] text-gray-400 mt-1">Last worked {formatDate(m.lastWorkedDate)}</p>
+                )}
+              </div>
+
+              {/* How the balance is built up */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-gray-50">
+                  <p className="text-xs font-semibold text-gray-500 uppercase">Account summary</p>
+                </div>
+                <div className="divide-y divide-gray-50 text-sm">
+                  <div className="px-4 py-2.5 flex items-center justify-between">
+                    <span className="text-gray-600 flex items-center gap-2"><Calendar className="h-3.5 w-3.5 text-primary" /> Days worked</span>
+                    <span className="font-bold text-gray-800">{m.totalDays}</span>
+                  </div>
+                  <div className="px-4 py-2.5 flex items-center justify-between">
+                    <span className="text-gray-600 flex items-center gap-2"><Banknote className="h-3.5 w-3.5 text-primary" /> Wages earned</span>
+                    <span className="font-bold text-gray-800">{inr(m.totalWage)}</span>
+                  </div>
+                  <div className="px-4 py-2.5 flex items-center justify-between">
+                    <span className="text-gray-600 flex items-center gap-2"><CreditCard className="h-3.5 w-3.5 text-red-500" /> Loan pending</span>
+                    <span className={`font-bold ${m.loanOutstanding > 0 ? "text-red-600" : "text-gray-400"}`}>
+                      {m.loanOutstanding > 0 ? `− ${inr(m.loanOutstanding)}` : inr(0)}
+                    </span>
+                  </div>
+                  {m.loanTaken > 0 && (
+                    <div className="px-4 py-2 text-xs text-gray-400">
+                      Loans taken {inr(m.loanTaken)} · already repaid {inr(m.loanRepaid)}
+                    </div>
+                  )}
+                  <div className="px-4 py-2.5 flex items-center justify-between">
+                    <span className="text-gray-600 flex items-center gap-2"><Send className="h-3.5 w-3.5 text-emerald-600" /> Payments received ({m.paymentsCount})</span>
+                    <span className={`font-bold ${m.paymentsTotal > 0 ? "text-emerald-600" : "text-gray-400"}`}>
+                      {m.paymentsTotal > 0 ? `− ${inr(m.paymentsTotal)}` : inr(0)}
+                    </span>
+                  </div>
+                  <div className={`px-4 py-3 flex items-center justify-between ${m.netDue >= 0 ? "bg-primary/5" : "bg-red-50"}`}>
+                    <span className={`font-semibold ${m.netDue >= 0 ? "text-primary" : "text-red-700"}`}>Net due</span>
+                    <span className={`font-bold text-base ${m.netDue >= 0 ? "text-primary" : "text-red-600"}`}>
+                      {m.netDue >= 0 ? inr(m.netDue) : `− ${inr(Math.abs(m.netDue))}`}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Pay this employee — amount prefilled with their net due */}
+              <button
+                onClick={() => setShowPaySheet(true)}
+                className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground rounded-2xl py-3.5 font-semibold text-sm shadow-sm active:scale-[0.99]"
+              >
+                <Send size={16} /> Pay {m.workerName.split(" ")[0]}{m.netDue > 0 ? ` ${inr(m.netDue)}` : ""}
+              </button>
+
+              {/* Loans */}
+              {m.loans.length > 0 && (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                  <div className="px-4 py-2.5 border-b border-gray-50">
+                    <p className="text-xs font-semibold text-gray-500 uppercase">Loans</p>
+                  </div>
+                  <div className="divide-y divide-gray-50">
+                    {m.loans.map((l) => {
+                      const left = Math.max(0, Number(l.totalDue) - Number(l.repaidAmount));
+                      return (
+                        <div key={l.id} className="px-4 py-2.5 flex items-center justify-between text-sm">
+                          <div>
+                            <p className="font-medium text-gray-700">{inr(Number(l.amount))} loan</p>
+                            <p className="text-xs text-gray-400">
+                              {l.issuedDate ? formatDate(l.issuedDate) : ""} · repaid {inr(Number(l.repaidAmount))}
+                            </p>
+                          </div>
+                          <span className={`font-bold ${left > 0 ? "text-red-600" : "text-emerald-600"}`}>
+                            {left > 0 ? `${inr(left)} left` : "Cleared"}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Payments received */}
+              {m.payments.length > 0 && (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                  <div className="px-4 py-2.5 border-b border-gray-50">
+                    <p className="text-xs font-semibold text-gray-500 uppercase">Payments received</p>
+                  </div>
+                  <div className="divide-y divide-gray-50">
+                    {m.payments.map((pm) => (
+                      <div key={pm.id} className="px-4 py-2.5 flex items-center justify-between text-sm">
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-700">{formatDate(pm.paymentDate)}</p>
+                          <p className="text-xs text-gray-400 truncate">{pm.methodLabel || pm.method}{pm.note ? ` · ${pm.note}` : ""}</p>
+                        </div>
+                        <span className="font-bold text-emerald-600 shrink-0">{inr(Number(pm.amount))}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {showPaySheet && (
+          <PaySheet
+            groupId={openFolder?.id ?? null}
+            groupName={openFolder?.name ?? ""}
+            groupUpiId={group?.upiId ?? null}
+            initialWorkerId={openWorker.id}
+            suggestedAmount={m && m.netDue > 0 ? m.netDue : undefined}
+            onClose={() => {
+              setShowPaySheet(false);
+              qc.invalidateQueries({ queryKey: ["worker-money"] });
+            }}
+          />
+        )}
+      </PageShell>
+    );
+  }
+
   return (
     <PageShell
       title={openFolder ? openFolder.name : "Labour Payments & Records"}
@@ -279,7 +503,34 @@ export default function LabourRecords() {
         )}
 
         {!isLoading && openFolder === null && (
-          <GroupFolderList folders={folders} onOpen={(f) => { setView("weekly"); setOpenFolder({ id: f.id, name: f.name }); }} />
+          <>
+            <GroupFolderList folders={folders} onOpen={(f) => { setView("weekly"); setOpenFolder({ id: f.id, name: f.name }); }} />
+
+            {/* ── Accounts history — cleared (fully settled) groups ── */}
+            {clearedGroups.length > 0 && (
+              <div className="space-y-2 pt-2">
+                <p className="text-xs font-semibold text-gray-500 uppercase">✅ Accounts history</p>
+                {clearedGroups.map((g) => (
+                  <button
+                    key={g.id}
+                    onClick={() => { setView("final"); setOpenFolder({ id: g.id, name: g.name }); }}
+                    className="w-full bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3 active:bg-gray-50 text-left"
+                  >
+                    <div className="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0">
+                      <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-800 truncate">{g.name}</p>
+                      <p className="text-xs text-emerald-700 mt-0.5">
+                        Account cleared{g.clearedAt ? ` · ${new Date(g.clearedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}` : ""}
+                      </p>
+                    </div>
+                    <ChevronRight size={16} className="text-gray-300" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
         )}
 
         {/* ── Period selector (group folders only) ── */}
@@ -306,14 +557,91 @@ export default function LabourRecords() {
           </div>
         )}
 
+        {/* ── Payment due now (pay on any day you choose — Sat, Wed…) ── */}
+        {!isLoading && groupOpen && !isCleared && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-gray-50 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase">Payment due now</p>
+                <p className="text-[11px] text-gray-400">
+                  {lastPaymentDate ? `for work after ${formatDate(lastPaymentDate)}` : "no payment made yet"}
+                </p>
+              </div>
+              <span className="font-bold text-lg text-primary">{inr(Math.max(0, dueWages))}</span>
+            </div>
+            <div className="divide-y divide-gray-50 text-sm">
+              <div className="px-4 py-2.5 flex items-center justify-between">
+                <span className="text-gray-600">
+                  {hasAdvanceStructure
+                    ? `Advance due (${dueDays} × ${inr(advPerDay)})`
+                    : `Wages due (${dueDays} work${dueDays !== 1 ? "s" : ""}${isPerDay && groupRate > 0 ? ` · ${inr(groupRate)}/day` : ""})`}
+                </span>
+                <span className="font-bold text-primary">{inr(hasAdvanceStructure ? dueAdvance : dueEarned)}</span>
+              </div>
+              <div className="px-4 py-2.5 flex items-center justify-between">
+                <span className="text-gray-600">Loan pending</span>
+                <span className={`font-bold ${loanOutstanding > 0 ? "text-red-600" : "text-gray-400"}`}>
+                  {loanOutstanding > 0 ? inr(loanOutstanding) : inr(0)}
+                </span>
+              </div>
+              <div className="px-4 py-3 flex items-center justify-between bg-primary/5">
+                <span className="font-semibold text-primary">To pay this time</span>
+                <span className="font-bold text-base text-primary">{inr(Math.max(0, dueWages))}</span>
+              </div>
+              {loanOutstanding > 0 && dueWages > 0 && (
+                <div className="px-4 py-2.5 flex items-center justify-between text-xs">
+                  <span className="text-gray-500">If you cut the loan now</span>
+                  <span className="font-semibold text-gray-700">
+                    {inr(Math.max(0, dueWages - loanOutstanding))}
+                    {loanOutstanding > dueWages && ` (loan ${inr(loanOutstanding - dueWages)} still left)`}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* ── Pay workers (direct payment: cash / UPI / wallet / bank) ── */}
-        {!isLoading && openFolder !== null && (
+        {!isLoading && openFolder !== null && !isCleared && (
           <button
             onClick={() => setShowPaySheet(true)}
             className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground rounded-2xl py-3.5 font-semibold text-sm shadow-sm active:scale-[0.99]"
           >
             <Send size={16} /> Pay Workers
           </button>
+        )}
+
+        {/* ── Employees in this group — tap one to see their own money page ── */}
+        {!isLoading && openFolder !== null && folderWorkers.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-gray-50 flex items-center justify-between">
+              <p className="text-xs font-semibold text-gray-500 uppercase">Employees</p>
+              <p className="text-[11px] text-gray-400">tap for wages, loans & payments</p>
+            </div>
+            <div className="divide-y divide-gray-50">
+              {folderWorkers.map((w) => (
+                <button
+                  key={w.id}
+                  onClick={() => setOpenWorker({ id: w.id, name: w.name })}
+                  className="w-full px-4 py-3 flex items-center justify-between gap-2 text-left active:bg-gray-50"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-bold shrink-0">
+                      {w.name.charAt(0).toUpperCase()}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-gray-800 text-sm truncate">{w.name}</p>
+                      <p className="text-xs text-gray-400">{w.days} day{w.days !== 1 ? "s" : ""} worked</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-sm font-bold text-primary">{inr(w.earned)}</span>
+                    <ChevronRight size={16} className="text-gray-300" />
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* ── Final settlement (full report) ── */}
@@ -365,6 +693,41 @@ export default function LabourRecords() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* ── Account cleared — archive a fully-settled group into history ── */}
+        {!isLoading && groupOpen && view === "final" && (
+          isCleared ? (
+            <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex items-center gap-3">
+              <CheckCircle2 className="h-6 w-6 text-emerald-600 shrink-0" />
+              <div>
+                <p className="font-semibold text-emerald-800 text-sm">Account cleared</p>
+                <p className="text-xs text-emerald-700 mt-0.5">
+                  {group?.clearedAt
+                    ? `Settled on ${new Date(group.clearedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })} — kept here in Accounts history.`
+                    : "Kept here in Accounts history."}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                if (finalPayable > 0) {
+                  toast({
+                    title: `${inr(finalPayable)} still to pay`,
+                    description: "Record the payment first, then clear the account.",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                if (!clearAccount.isPending) clearAccount.mutate(openFolder!.id as number);
+              }}
+              className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white rounded-2xl py-3.5 font-semibold text-sm shadow-sm active:scale-[0.99]"
+            >
+              <CheckCircle2 size={16} />
+              {clearAccount.isPending ? "Clearing…" : "Account cleared — everything is paid"}
+            </button>
+          )
         )}
 
         {/* ── Weekly / Monthly / Yearly breakdown ── */}

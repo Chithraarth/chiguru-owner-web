@@ -2,17 +2,18 @@ import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  Stethoscope, Star, MapPin, Phone, MessageSquare, Send, Wallet, Plus, ArrowLeft, Clock, GraduationCap, Briefcase, Languages, Loader2, PhoneOff, BadgeCheck, X, Lock, Banknote, Landmark, CheckCircle2, AlertTriangle, ChevronRight, FileText, Upload, UserPlus
+  Stethoscope, Star, MapPin, Phone, MessageSquare, Send, Wallet, Plus, ArrowLeft, Clock, GraduationCap, Briefcase, Languages, Loader2, PhoneOff, BadgeCheck, X, Lock, Camera, Mic, Banknote, Landmark, CheckCircle2, AlertTriangle, ChevronRight, FileText, Upload, UserPlus
 } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { apiFetch, apiMutate } from "@/lib/api";
+import { apiFetch, apiMutate, ApiError } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useSubScreenHistory } from "@/hooks/use-sub-screen-history";
 import { fmtMoney, curSymbol } from "@/lib/currency";
+import { compressForAI, fileToDataUrl } from "@/lib/photo";
 
 interface Agronomist {
   id: number;
@@ -74,6 +75,8 @@ interface ConsultMessage {
   id: number;
   sender: "farmer" | "doctor";
   text: string;
+  mediaType: "image" | "audio" | null;
+  mediaUrl: string | null;
   createdAt: string;
 }
 
@@ -438,14 +441,26 @@ function fmtClock(sec: number) {
   return `${m}:${s}`;
 }
 
+// Voice notes are capped at 60s so the base64 payload stays well within the
+// API's upload limit on a slow rural connection.
+const MAX_VOICE_SEC = 60;
+
 function ChatView({ view, balance, onBack }: { view: { doctor: Agronomist; consultationId: number }; balance: number; onBack: () => void }) {
   const { doctor, consultationId } = view;
   const ratePer15 = Number(doctor.ratePer15Min);
   const [input, setInput] = useState("");
   const [elapsed, setElapsed] = useState(0);
   const [ended, setEnded] = useState<{ cost: number; minutes: number; doctorEarning: number; platformFee: number } | null>(null);
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [recordSec, setRecordSec] = useState(0);
+  const photoRef = useRef<HTMLInputElement>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recordTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const qc = useQueryClient();
+  const { toast } = useToast();
 
   const { data: messages = [] } = useQuery<ConsultMessage[]>({
     queryKey: ["consultation-messages", consultationId],
@@ -461,9 +476,24 @@ function ChatView({ view, balance, onBack }: { view: { doctor: Agronomist; consu
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length]);
 
+  // Stop any in-progress recording if the farmer navigates away mid-note.
+  useEffect(() => () => {
+    if (recorderRef.current && recorderRef.current.state !== "inactive") recorderRef.current.stop();
+    if (recordTimerRef.current) clearInterval(recordTimerRef.current);
+  }, []);
+
   const send = useMutation({
-    mutationFn: (text: string) => apiMutate("POST", `/consultations/${consultationId}/messages`, { text }),
+    mutationFn: (payload: { text: string; mediaType?: "image" | "audio"; mediaUrl?: string }) =>
+      apiMutate("POST", `/consultations/${consultationId}/messages`, payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["consultation-messages", consultationId] }),
+    onError: (err: unknown) => {
+      const tooLarge = err instanceof ApiError && err.status === 413;
+      toast({
+        title: "Could not send",
+        description: tooLarge ? "That file is too large. Try a smaller photo or a shorter voice note." : "Please check your connection and try again.",
+        variant: "destructive",
+      });
+    },
   });
 
   const end = useMutation({
@@ -475,10 +505,74 @@ function ChatView({ view, balance, onBack }: { view: { doctor: Agronomist; consu
 
   const handleSend = () => {
     const t = input.trim();
-    if (!t || send.isPending) return;
+    if ((!t && !pendingImage) || send.isPending) return;
     setInput("");
-    send.mutate(t);
+    if (pendingImage) {
+      const img = pendingImage;
+      setPendingImage(null);
+      send.mutate({ text: t, mediaType: "image", mediaUrl: img });
+    } else {
+      send.mutate({ text: t });
+    }
   };
+
+  // Doctors need to actually see crop symptoms clearly, so compress with the
+  // same "AI-grade" profile disease.tsx uses rather than squeezing it down to
+  // record-only quality.
+  async function handlePhotoFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setPhotoBusy(true);
+    try {
+      const raw = await fileToDataUrl(file);
+      const compressed = await compressForAI(raw);
+      setPendingImage(compressed);
+    } catch {
+      toast({ title: "Could not read that photo", variant: "destructive" });
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+
+  const stopRecording = () => recorderRef.current?.stop();
+
+  async function startRecording() {
+    if (recording || send.isPending) return;
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      toast({ title: "Microphone not available", description: "Please allow microphone access to record a voice note.", variant: "destructive" });
+      return;
+    }
+    const mime = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].find((m) => MediaRecorder.isTypeSupported(m));
+    const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    const chunks: Blob[] = [];
+    rec.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+    rec.onstop = () => {
+      stream.getTracks().forEach((t) => t.stop());
+      if (recordTimerRef.current) clearInterval(recordTimerRef.current);
+      recordTimerRef.current = null;
+      setRecording(false);
+      setRecordSec(0);
+      const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
+      if (blob.size < 1000) return; // too short to be a real note
+      const reader = new FileReader();
+      reader.onload = () => send.mutate({ text: "", mediaType: "audio", mediaUrl: String(reader.result) });
+      reader.readAsDataURL(blob);
+    };
+    recorderRef.current = rec;
+    setRecording(true);
+    setRecordSec(0);
+    rec.start();
+    recordTimerRef.current = setInterval(() => {
+      setRecordSec((s) => {
+        if (s + 1 >= MAX_VOICE_SEC) stopRecording();
+        return s + 1;
+      });
+    }, 1000);
+  }
 
   if (ended) {
     return (
@@ -523,7 +617,13 @@ function ChatView({ view, balance, onBack }: { view: { doctor: Agronomist; consu
                 <div className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed whitespace-pre-wrap ${
                   isFarmer ? "bg-primary text-primary-foreground rounded-tr-sm" : "bg-white border border-gray-100 text-gray-800 rounded-tl-sm shadow-sm"
                 }`}>
-                  {m.text}
+                  {m.mediaType === "image" && m.mediaUrl && (
+                    <img src={m.mediaUrl} alt="Attached crop photo" className="rounded-xl max-h-56 w-full object-contain bg-black/5 mb-1.5" />
+                  )}
+                  {m.mediaType === "audio" && m.mediaUrl && (
+                    <audio controls src={m.mediaUrl} className="w-56 max-w-full mb-1.5 h-10" />
+                  )}
+                  {m.text && <span>{m.text}</span>}
                 </div>
               </div>
             );
@@ -539,18 +639,57 @@ function ChatView({ view, balance, onBack }: { view: { doctor: Agronomist; consu
           <div ref={bottomRef} />
         </div>
 
-        <div className="border-t border-gray-200 bg-white p-3 flex items-end gap-2">
-          <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-            placeholder="Describe your crop problem…"
-            rows={1}
-            className="resize-none min-h-[44px] max-h-32"
-          />
-          <Button size="icon" className="h-11 w-11 bg-primary hover:bg-primary/90 flex-shrink-0" disabled={send.isPending || !input.trim()} onClick={handleSend}>
-            <Send className="h-4 w-4" />
-          </Button>
+        <div className="border-t border-gray-200 bg-white p-3">
+          {pendingImage && (
+            <div className="mb-2 relative inline-block">
+              <img src={pendingImage} alt="Photo to send" className="h-20 rounded-xl border border-gray-200 object-cover" />
+              <button
+                onClick={() => setPendingImage(null)}
+                className="absolute -top-2 -right-2 bg-gray-800 text-white rounded-full p-1"
+                aria-label="Remove photo"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
+          {recording ? (
+            <div className="flex items-center gap-3">
+              <div className="flex-1 flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 h-11">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+                <span className="text-sm font-medium text-red-600">Recording… {fmtClock(recordSec)}</span>
+              </div>
+              <Button size="icon" className="h-11 w-11 bg-red-500 hover:bg-red-600 flex-shrink-0" onClick={stopRecording} aria-label="Stop and send voice note">
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-end gap-2">
+              <input ref={photoRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoFile} />
+              <Button
+                size="icon" variant="outline" className="h-11 w-11 flex-shrink-0 text-gray-600"
+                disabled={send.isPending || photoBusy} onClick={() => photoRef.current?.click()} aria-label="Attach a photo"
+              >
+                {photoBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-5 w-5" />}
+              </Button>
+              <Textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+                placeholder="Describe your crop problem…"
+                rows={1}
+                className="resize-none min-h-[44px] max-h-32"
+              />
+              {input.trim() || pendingImage ? (
+                <Button size="icon" className="h-11 w-11 bg-primary hover:bg-primary/90 flex-shrink-0" disabled={send.isPending} onClick={handleSend} aria-label="Send">
+                  <Send className="h-4 w-4" />
+                </Button>
+              ) : (
+                <Button size="icon" className="h-11 w-11 bg-primary hover:bg-primary/90 flex-shrink-0" disabled={send.isPending} onClick={startRecording} aria-label="Record a voice note">
+                  <Mic className="h-5 w-5" />
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </PageShell>

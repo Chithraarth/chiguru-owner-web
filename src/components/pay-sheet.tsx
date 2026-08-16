@@ -24,6 +24,8 @@ interface PaySheetProps {
   groupUpiId?: string | null;
   /** Prefill amount (e.g. this week's due or the final balance). */
   suggestedAmount?: number;
+  /** Pre-select "one worker" and this worker id (e.g. opened from a worker's own money page). */
+  initialWorkerId?: number;
   onClose: () => void;
 }
 
@@ -33,7 +35,7 @@ interface PaySheetProps {
  * (PhonePe / Google Pay / Paytm / any UPI app) where the owner confirms with
  * their own PIN; every other method is paid outside and recorded here.
  */
-export function PaySheet({ groupId, groupName, groupUpiId, suggestedAmount, onClose }: PaySheetProps) {
+export function PaySheet({ groupId, groupName, groupUpiId, suggestedAmount, initialWorkerId, onClose }: PaySheetProps) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const methods = useMemo(() => activePayMethods(), []);
@@ -44,8 +46,10 @@ export function PaySheet({ groupId, groupName, groupUpiId, suggestedAmount, onCl
   });
 
   // Payee: whole group (contractor / maistry) or one worker.
-  const [payeeKind, setPayeeKind] = useState<"group" | "worker">(groupId != null ? "group" : "worker");
-  const [workerId, setWorkerId] = useState<number | "">("");
+  const [payeeKind, setPayeeKind] = useState<"group" | "worker">(
+    initialWorkerId != null ? "worker" : groupId != null ? "group" : "worker",
+  );
+  const [workerId, setWorkerId] = useState<number | "">(initialWorkerId ?? "");
   const [method, setMethod] = useState<PayMethod>(methods[0]);
   const [amount, setAmount] = useState(suggestedAmount && suggestedAmount > 0 ? String(Math.round(suggestedAmount)) : "");
   const [handle, setHandle] = useState("");
