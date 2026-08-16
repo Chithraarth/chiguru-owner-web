@@ -8,6 +8,7 @@ import {
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch, ACTIVE_ESTATE_KEY, getActiveEstateId } from "./api";
+import { auth, onAuthStateChanged } from "./firebase";
 
 export interface Estate {
   id: number;
@@ -35,9 +36,18 @@ export function EstateProvider({ children }: { children: ReactNode }) {
     return raw ? Number(raw) : null;
   });
 
+  // This provider sits above AuthProvider in the tree (so the whole app,
+  // including the signed-out landing page, can render under it), so it can't
+  // read useAuth() — it watches Firebase's own auth state directly instead,
+  // purely to avoid firing an authenticated /estates call for a signed-out
+  // visitor (who'd just get a 401 back).
+  const [signedIn, setSignedIn] = useState(() => auth.currentUser != null);
+  useEffect(() => onAuthStateChanged(auth, (u) => setSignedIn(u != null)), []);
+
   const { data: estates = [], isLoading } = useQuery<Estate[]>({
     queryKey: ["estates"],
     queryFn: () => apiFetch("/estates"),
+    enabled: signedIn,
   });
 
   // Default the active estate to the first one once estates load and none is
