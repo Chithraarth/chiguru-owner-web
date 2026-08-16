@@ -165,15 +165,28 @@ function UnauthenticatedGate() {
   );
 }
 
+// Routes that only make sense while signed out — if a login/signup succeeds
+// while the URL is still sitting on one of these, they'd otherwise 404
+// against the authenticated Router() below, which doesn't register them.
+const SIGNED_OUT_ONLY_PATHS = new Set(["/login", "/signup"]);
+
 // Mandatory sign-in gate: every route above is unreachable until Firebase
 // reports a signed-in user. No onboarding/estate/subscription step is forced
 // here — a fresh Owner lands straight on the Dashboard, which shows its own
 // empty state until they create an estate.
 function Gated() {
   const { user, loading } = useAuth();
+  const [location, navigate] = useLocation();
+
+  useEffect(() => {
+    if (user && SIGNED_OUT_ONLY_PATHS.has(location)) {
+      navigate("/", { replace: true });
+    }
+  }, [user, location, navigate]);
 
   if (loading) return <PageLoader />;
   if (!user) return <UnauthenticatedGate />;
+  if (SIGNED_OUT_ONLY_PATHS.has(location)) return <PageLoader />;
 
   return (
     <ErrorBoundary>
