@@ -23,8 +23,29 @@ const firebaseConfig = {
 const app: FirebaseApp = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
+// auth.currentUser is null until Firebase finishes restoring a persisted
+// session — on a fresh page load that's asynchronous, so a request fired
+// (e.g. from a query with no auth gate) before the first onAuthStateChanged
+// callback would read currentUser as null and silently go out with no
+// Authorization header, even though the user is actually signed in and the
+// UI shows so a moment later. Wait for that first callback, once, before
+// ever trusting currentUser.
+let authReady: Promise<void> | null = null;
+function waitForAuthReady(): Promise<void> {
+  if (!authReady) {
+    authReady = new Promise((resolve) => {
+      const unsubscribe = onAuthStateChanged(auth, () => {
+        unsubscribe();
+        resolve();
+      });
+    });
+  }
+  return authReady;
+}
+
 /** Fresh Firebase ID token for the signed-in user, or null if signed out. */
 export async function getIdToken(): Promise<string | null> {
+  await waitForAuthReady();
   const user = auth.currentUser;
   if (!user) return null;
   return user.getIdToken();
