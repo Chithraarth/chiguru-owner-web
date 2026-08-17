@@ -180,9 +180,9 @@ export default function Dashboard() {
     enabled: !profile,
     retry: false,
   });
-  const { data: subscription } = useQuery<{ status: string } | null>({
-    queryKey: ["subscription", "setup-check"],
-    queryFn: () => apiFetch("/subscription"),
+  const { data: subscriptionMe } = useQuery<{ subscription: { status: string } | null }>({
+    queryKey: ["subscription-me", "setup-check"],
+    queryFn: () => apiFetch("/subscriptions/me"),
     enabled: !profile,
     retry: false,
   });
@@ -190,7 +190,7 @@ export default function Dashboard() {
   const setupSteps = [
     { label: "Create estate", done: !!profile },
     { label: "Add work group", done: (workGroups?.length ?? 0) > 0 },
-    { label: "Choose a plan", done: subscription?.status === "active" },
+    { label: "Choose a plan", done: subscriptionMe?.subscription?.status === "ACTIVE" },
   ];
   const setupDoneCount = setupSteps.filter((s) => s.done).length;
 

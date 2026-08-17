@@ -43,7 +43,6 @@ const NurseryAdmin = lazyWithReload(() => import("@/pages/nursery-admin"));
 const NurseryShop = lazyWithReload(() => import("@/pages/nursery"));
 const AgriDoctor = lazyWithReload(() => import("@/pages/agri-doctor"));
 const Subscription = lazyWithReload(() => import("@/pages/subscription"));
-const SubscriptionSuccess = lazyWithReload(() => import("@/pages/subscription-success"));
 const Marketplace = lazyWithReload(() => import("@/pages/marketplace"));
 const MandiPrices = lazyWithReload(() => import("@/pages/mandi"));
 const Equipment = lazyWithReload(() => import("@/pages/equipment"));
@@ -127,7 +126,6 @@ function Router() {
         <Route path="/nursery" component={NurseryShop} />
         <Route path="/agri-doctor" component={AgriDoctor} />
         <Route path="/subscription" component={Subscription} />
-        <Route path="/subscription/success" component={SubscriptionSuccess} />
         <Route path="/marketplace" component={Marketplace} />
         <Route path="/mandi" component={MandiPrices} />
         <Route path="/equipment" component={Equipment} />
