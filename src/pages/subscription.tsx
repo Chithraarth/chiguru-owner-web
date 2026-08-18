@@ -49,7 +49,13 @@ interface CurrentSubscription {
 
 interface SubscriptionMe {
   subscription: CurrentSubscription | null;
-  entitlement: { managerLimit: number; managersUsed: number; remainingManagers: number };
+  entitlement: {
+    managerLimit: number;
+    managersUsed: number;
+    remainingManagers: number;
+    extraManagerSeats: number;
+    managerSeatAddonPrice: number;
+  };
 }
 
 interface WalletMe {
@@ -127,6 +133,7 @@ export default function Subscription() {
   const [busyRecharge, setBusyRecharge] = useState<number | null>(null);
   const [rechargeInput, setRechargeInput] = useState("");
   const [cancelling, setCancelling] = useState(false);
+  const [busySeatAddon, setBusySeatAddon] = useState(false);
 
   const { data: plansData, isLoading: plansLoading } = useQuery<{ plans: Plan[] }>({
     queryKey: ["subscription-plans"],
@@ -257,6 +264,57 @@ export default function Subscription() {
     }
   }
 
+  async function buySeatAddon() {
+    setBusySeatAddon(true);
+    try {
+      const [scriptOk, order] = await Promise.all([
+        loadRazorpayScript(),
+        apiMutate<{ orderId: string; amount: number; currency: string; keyId: string }>("POST", "/subscriptions/manager-seat-addon/order"),
+      ]);
+      if (!scriptOk || !window.Razorpay) {
+        toast({ title: "Payment page didn't load", description: "Check your connection and try again.", variant: "destructive" });
+        setBusySeatAddon(false);
+        return;
+      }
+      if (!order) throw new Error("offline");
+
+      const razorpay = new window.Razorpay({
+        key: order.keyId,
+        order_id: order.orderId,
+        amount: Math.round(order.amount * 100),
+        currency: order.currency,
+        name: "Chiguru",
+        description: "Extra manager seat (one-time)",
+        theme: { color: "#2E2A54" },
+        handler: (response) => {
+          apiMutate("POST", "/subscriptions/manager-seat-addon/verify", {
+            orderId: response.razorpay_order_id,
+            paymentId: response.razorpay_payment_id,
+            signature: response.razorpay_signature,
+          })
+            .then((res) => {
+              if (!res) throw new Error("offline");
+              invalidateAll();
+              toast({ title: "Manager seat added", description: "You can now add one more manager — this seat never expires." });
+            })
+            .catch((err: unknown) => {
+              const msg = err instanceof ApiError ? (err.body?.message ?? "Please contact support if this keeps happening.") : "Please contact support if this keeps happening.";
+              toast({ title: "Couldn't verify your payment", description: msg, variant: "destructive" });
+            })
+            .finally(() => setBusySeatAddon(false));
+        },
+        modal: {
+          ondismiss: () => setBusySeatAddon(false),
+        },
+      });
+      razorpay.open();
+    } catch (err) {
+      const msg = err instanceof ApiError ? (err.body?.message ?? "Network error — please try again.") : "Network error — please try again.";
+      toast({ title: "Couldn't start checkout", description: msg, variant: "destructive" });
+      setBusySeatAddon(false);
+    }
+  }
+
   async function cancelSubscription() {
     setCancelling(true);
     try {
@@ -364,8 +422,21 @@ export default function Subscription() {
                     {me?.entitlement.managersUsed}/{me?.entitlement.managerLimit} managers used
                     {" · "}
                     {me?.entitlement.remainingManagers} remaining
+                    {!!me?.entitlement.extraManagerSeats && ` (includes ${me.entitlement.extraManagerSeats} purchased)`}
                   </span>
                 </div>
+                <Button
+                  onClick={buySeatAddon}
+                  disabled={busySeatAddon}
+                  variant="outline"
+                  className="mt-3 w-full bg-white/10 border-white/30 text-white hover:bg-white/20 rounded-xl h-10"
+                >
+                  {busySeatAddon ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    `Add extra manager seat — ₹${me?.entitlement.managerSeatAddonPrice ?? 199} one-time`
+                  )}
+                </Button>
               </section>
             ) : (
               <section className="bg-primary text-primary-foreground rounded-2xl p-4 shadow-sm">
