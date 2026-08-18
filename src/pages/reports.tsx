@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, BarChart3, TrendingUp, TrendingDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, BarChart3, ChevronLeft, ChevronRight } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { PageShell } from "@/components/page-shell";
 import { apiFetch } from "@/lib/api";
@@ -171,33 +171,6 @@ export default function Reports() {
                   </div>
                 )}
 
-                {season.crops.length > 0 && (
-                  <div className="space-y-2">
-                    {season.crops.map((c) => (
-                      <div key={c.cropId} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                        <div className="flex items-center justify-between mb-2">
-                          <div>
-                            <p className="font-semibold text-gray-800">{c.cropName}</p>
-                            <p className="text-xs text-gray-400">{c.acres} acres · {c.totalYieldKg.toLocaleString("en-IN")} kg yield</p>
-                          </div>
-                          <div className="text-right">
-                            <p className={`font-bold text-sm ${c.netProfit >= 0 ? "text-primary" : "text-red-600"}`}>
-                              {c.netProfit >= 0 ? <TrendingUp className="inline h-3.5 w-3.5 mr-0.5" /> : <TrendingDown className="inline h-3.5 w-3.5 mr-0.5" />}
-                              {fmt(c.netProfit)}
-                            </p>
-                            <p className="text-xs text-gray-400">{fmt(c.profitPerAcre)}/acre</p>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-1 text-xs text-gray-500">
-                          <span>Income: <strong className="text-gray-700">{fmt(c.totalIncome)}</strong></span>
-                          <span>Labour: <strong className="text-gray-700">{fmt(c.labourCost)}</strong></span>
-                          <span>Fertilizer: <strong className="text-gray-700">{fmt(c.fertilizerCost)}</strong></span>
-                          <span>Spray: <strong className="text-gray-700">{fmt(c.sprayCost)}</strong></span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
             )}
           </div>
