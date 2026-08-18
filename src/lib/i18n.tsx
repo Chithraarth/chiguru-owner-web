@@ -117,6 +117,8 @@ const en: Dict = {
 
   // More section
   "more.farmManager": "Hire",
+  "more.rentMachines": "Rent Machines",
+  "more.findWorkers": "Find Workers",
   "more.shop": "Shop",
   "more.nursery": "Nursery",
   "more.market": "Buy Direct from Farmer",
@@ -204,7 +206,7 @@ const en: Dict = {
   "menu.language": "Language",
   "menu.rate": "Rate the app",
   "menu.bin": "Recycle Bin",
-  "menu.myAds": "My Ads",
+  "menu.myAds": "Post Ads",
   "myAds.subtitle": "Ads you posted — delete anything that's done or sold",
   "myAds.empty": "You haven't posted any ads yet.",
   "myAds.workerAds": "Worker requirements",
@@ -472,6 +474,8 @@ const hi: Dict = {
   "land.ctaTitle": "आज ही शुरू करें — बहुत आसान है",
 
   "more.farmManager": "किराया व मज़दूर",
+  "more.rentMachines": "मशीन किराये पर",
+  "more.findWorkers": "मज़दूर खोजें",
   "more.shop": "दुकान",
   "more.nursery": "नर्सरी",
   "more.market": "सीधे किसान से खरीदें",
@@ -823,6 +827,8 @@ const kn: Dict = {
   "land.ctaTitle": "ಇಂದೇ ಶುರು ಮಾಡಿ — ತುಂಬಾ ಸುಲಭ",
 
   "more.farmManager": "ಬಾಡಿಗೆ ಮತ್ತು ಕೂಲಿ",
+  "more.rentMachines": "ಯಂತ್ರ ಬಾಡಿಗೆ",
+  "more.findWorkers": "ಕೂಲಿಯಾಳು ಹುಡುಕಿ",
   "more.shop": "ಅಂಗಡಿ",
   "more.nursery": "ನರ್ಸರಿ",
   "more.market": "ರೈತರಿಂದ ನೇರವಾಗಿ ಖರೀದಿಸಿ",
@@ -1174,6 +1180,8 @@ const ta: Dict = {
   "land.ctaTitle": "இன்றே தொடங்குங்கள் — இது எளிது",
 
   "more.farmManager": "வாடகை மற்றும் கூலி",
+  "more.rentMachines": "இயந்திரம் வாடகைக்கு",
+  "more.findWorkers": "கூலியாட்களைத் தேடு",
   "more.shop": "கடை",
   "more.nursery": "நாற்றங்கால்",
   "more.market": "விவசாயியிடமிருந்து நேரடியாக வாங்கு",
@@ -1523,6 +1531,8 @@ const te: Dict = {
   "land.ctaTitle": "ఈరోజే ప్రారంభించండి — ఇది సులభం",
 
   "more.farmManager": "అద్దె మరియు కూలీ",
+  "more.rentMachines": "యంత్రాలు అద్దెకు",
+  "more.findWorkers": "కూలీలను వెతకండి",
   "more.shop": "దుకాణం",
   "more.nursery": "నర్సరీ",
   "more.market": "రైతు నుండి నేరుగా కొనండి",
@@ -1872,6 +1882,8 @@ const ml: Dict = {
   "land.ctaTitle": "ഇന്ന് തന്നെ തുടങ്ങുക — ഇത് എളുപ്പമാണ്",
 
   "more.farmManager": "വാടകയും കൂലിയും",
+  "more.rentMachines": "യന്ത്രം വാടകയ്ക്ക്",
+  "more.findWorkers": "കൂലിക്കാരെ കണ്ടെത്തുക",
   "more.shop": "കട",
   "more.nursery": "നഴ്സറി",
   "more.market": "കർഷകനിൽ നിന്ന് നേരിട്ട് വാങ്ങുക",
@@ -2221,6 +2233,8 @@ const mr: Dict = {
   "land.ctaTitle": "आजच सुरू करा — हे सोपे आहे",
 
   "more.farmManager": "भाडे व मजुरी",
+  "more.rentMachines": "यंत्र भाड्याने",
+  "more.findWorkers": "मजूर शोधा",
   "more.shop": "दुकान",
   "more.nursery": "रोपवाटिका",
   "more.market": "शेतकऱ्याकडून थेट खरेदी करा",

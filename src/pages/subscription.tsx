@@ -14,12 +14,15 @@ declare global {
 }
 interface RazorpayOptions {
   key: string;
-  subscription_id: string;
+  subscription_id?: string;
+  order_id?: string;
+  amount?: number;
+  currency?: string;
   name: string;
   description?: string;
   prefill?: { name?: string; email?: string; contact?: string };
   theme?: { color?: string };
-  handler: (response: { razorpay_payment_id: string; razorpay_subscription_id: string; razorpay_signature: string }) => void;
+  handler: (response: { razorpay_payment_id: string; razorpay_subscription_id?: string; razorpay_order_id?: string; razorpay_signature: string }) => void;
   modal?: { ondismiss?: () => void };
 }
 
@@ -51,6 +54,7 @@ interface SubscriptionMe {
 
 interface WalletMe {
   balance: number;
+  minRechargeAmount: number;
   share: { target: number; reward: number; platforms: string[]; rewarded: boolean };
   transactions: { id: number; type: string; feature: string | null; amount: string; createdAt: string }[];
 }
@@ -120,6 +124,8 @@ export default function Subscription() {
   const [flow, setFlow] = useState<FlowState>("idle");
   const [busyPlanId, setBusyPlanId] = useState<number | null>(null);
   const [busyShare, setBusyShare] = useState<string | null>(null);
+  const [busyRecharge, setBusyRecharge] = useState<number | null>(null);
+  const [rechargeInput, setRechargeInput] = useState("");
   const [cancelling, setCancelling] = useState(false);
 
   const { data: plansData, isLoading: plansLoading } = useQuery<{ plans: Plan[] }>({
@@ -196,6 +202,58 @@ export default function Subscription() {
       toast({ title: "Couldn't start checkout", description: msg, variant: "destructive" });
     } finally {
       setBusyPlanId(null);
+    }
+  }
+
+  async function recharge(amount: number) {
+    setBusyRecharge(amount);
+    try {
+      const [scriptOk, order] = await Promise.all([
+        loadRazorpayScript(),
+        apiMutate<{ orderId: string; amount: number; currency: string; keyId: string }>("POST", "/wallet/recharge/order", { amount }),
+      ]);
+      if (!scriptOk || !window.Razorpay) {
+        toast({ title: "Payment page didn't load", description: "Check your connection and try again.", variant: "destructive" });
+        return;
+      }
+      if (!order) throw new Error("offline");
+
+      const razorpay = new window.Razorpay({
+        key: order.keyId,
+        order_id: order.orderId,
+        amount: Math.round(order.amount * 100),
+        currency: order.currency,
+        name: "Chiguru",
+        description: "Wallet recharge",
+        theme: { color: "#2E2A54" },
+        handler: (response) => {
+          apiMutate("POST", "/wallet/recharge/verify", {
+            orderId: response.razorpay_order_id,
+            paymentId: response.razorpay_payment_id,
+            signature: response.razorpay_signature,
+            amount,
+          })
+            .then((res) => {
+              if (!res) throw new Error("offline");
+              invalidateAll();
+              setRechargeInput("");
+              toast({ title: "Wallet recharged", description: `₹${amount.toLocaleString("en-IN")} added to your wallet.` });
+            })
+            .catch((err: unknown) => {
+              const msg = err instanceof ApiError ? (err.body?.message ?? "Please contact support if this keeps happening.") : "Please contact support if this keeps happening.";
+              toast({ title: "Couldn't verify your payment", description: msg, variant: "destructive" });
+            })
+            .finally(() => setBusyRecharge(null));
+        },
+        modal: {
+          ondismiss: () => setBusyRecharge(null),
+        },
+      });
+      razorpay.open();
+    } catch (err) {
+      const msg = err instanceof ApiError ? (err.body?.message ?? "Network error — please try again.") : "Network error — please try again.";
+      toast({ title: "Couldn't start recharge", description: msg, variant: "destructive" });
+      setBusyRecharge(null);
     }
   }
 
@@ -318,6 +376,42 @@ export default function Subscription() {
                 <p className="text-primary-foreground/80 text-sm mt-1">Pick a plan below to run your whole farm and add managers.</p>
               </section>
             )}
+
+            {/* Wallet balance + recharge — funds per-use AI features, separate from the plan */}
+            <section className="rounded-2xl p-4 bg-gradient-to-br from-primary to-violet-500 text-white shadow-sm">
+              <p className="text-white/80 text-sm font-medium">Wallet balance</p>
+              <p className="text-4xl font-extrabold mt-1">₹{(wallet?.balance ?? 0).toLocaleString("en-IN")}</p>
+              <p className="text-white/70 text-xs mt-2 leading-relaxed">
+                Used for AI features — crop advisor, disease check, accounts scan and worker count.
+              </p>
+              <div className="mt-3 flex items-stretch gap-2">
+                <div className="flex-1 flex items-center bg-white/15 rounded-xl px-3">
+                  <span className="text-white/70 text-sm mr-1">₹</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={wallet?.minRechargeAmount ?? 199}
+                    value={rechargeInput}
+                    onChange={(e) => setRechargeInput(e.target.value)}
+                    placeholder={`Min ₹${wallet?.minRechargeAmount ?? 199}`}
+                    disabled={busyRecharge !== null}
+                    className="w-full bg-transparent text-white placeholder:text-white/50 py-3 text-lg font-bold outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                </div>
+                <button
+                  onClick={() => recharge(Math.floor(Number(rechargeInput)))}
+                  disabled={
+                    busyRecharge !== null ||
+                    !Number.isFinite(Number(rechargeInput)) ||
+                    Math.floor(Number(rechargeInput)) < (wallet?.minRechargeAmount ?? 199)
+                  }
+                  className="rounded-xl bg-white text-primary font-bold px-5 disabled:opacity-50 hover:bg-white/90 transition-colors"
+                >
+                  {busyRecharge !== null ? <Loader2 className="h-5 w-5 animate-spin" /> : "Add"}
+                </button>
+              </div>
+              <p className="text-[11px] text-white/60 mt-2">Minimum ₹{wallet?.minRechargeAmount ?? 199}</p>
+            </section>
 
             {/* Share on 3 apps → ₹300 wallet credit */}
             <section className="rounded-2xl p-4 border-2 border-emerald-200 bg-emerald-50/60">

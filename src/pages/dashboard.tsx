@@ -87,7 +87,8 @@ const ADVISORY = [
 ];
 
 const MARKET_SETUP = [
-  { href: "/workers", icon: Handshake, chip: "bg-[#E4F2FB] text-[#4FA8D8]", title: "Hire", desc: "Labour & machines" },
+  { href: "/workers?tab=rental", icon: Tractor, chip: "bg-[#E4F2FB] text-[#4FA8D8]", title: "Rent Machines", desc: "Tractors, JCBs & more" },
+  { href: "/workers?tab=job", icon: Handshake, chip: "bg-[#E4F2FB] text-[#4FA8D8]", title: "Find Workers", desc: "Labourers for hire" },
   { href: "/shop", icon: ShoppingCart, chip: "bg-[#FBEEDD] text-[#D69A4F]", title: "Shop", desc: "Inputs & tools" },
   { href: "/marketplace", icon: Store, chip: "bg-[#E0F5E9] text-[#4FAE72]", title: "Market", desc: "Ads & mandi rates" },
   { href: "/sync-log", icon: RefreshCw, chip: "bg-[#EAEAEA] text-[#6B6B6B]", title: "Sync & Settings", desc: "Data & account" },
