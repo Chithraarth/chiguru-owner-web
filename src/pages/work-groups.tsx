@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { apiFetch, apiMutate, apiUrl } from "@/lib/api";
+import { apiFetch, apiMutate, apiUrl, estateHeaders } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { fmtMoney, curSymbol } from "@/lib/currency";
 
@@ -126,7 +126,7 @@ export default function WorkGroups() {
       try {
         const res = await fetch(apiUrl("/ai/count-workers"), {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: await estateHeaders(),
           body: JSON.stringify({ imageBase64: dataUrl }),
         });
         const data = await res.json();

@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { WorkerNameInput } from "@/components/worker-name-input";
 import { FaceAttendance } from "@/components/face-attendance";
 import { SelectOrType } from "@/components/select-or-type";
-import { apiFetch, apiMutate, apiUrl } from "@/lib/api";
+import { apiFetch, apiMutate, apiUrl, estateHeaders } from "@/lib/api";
 import { compressForAI, compressForRecord, fileToDataUrl } from "@/lib/photo";
 import { cacheMedia } from "@/lib/offline-db";
 import { useToast } from "@/hooks/use-toast";
@@ -348,7 +348,7 @@ export default function AttendancePage() {
       const dataUrl = await compressForAI(raw);
       const res = await fetch(apiUrl("/ai/count-workers"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await estateHeaders(),
         body: JSON.stringify({ imageBase64: dataUrl }),
       });
       const data = await res.json();
@@ -424,7 +424,7 @@ export default function AttendancePage() {
         const aiPhoto = await compressForAI(raw);
         const res = await fetch(apiUrl("/ai/count-workers"), {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: await estateHeaders(),
           body: JSON.stringify({ imageBase64: aiPhoto }),
         });
         const data = await res.json();
@@ -453,7 +453,7 @@ export default function AttendancePage() {
     try {
       const res = await fetch(apiUrl(`/work-groups/${groupId}/season-end`), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await estateHeaders(),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Season end failed");

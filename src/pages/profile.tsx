@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { apiFetch, apiMutate, apiUrl } from "@/lib/api";
+import { apiFetch, apiMutate, apiUrl, estateHeaders } from "@/lib/api";
 import { useEstate } from "@/lib/use-estate";
 import { useT } from "@/lib/i18n";
 
@@ -81,10 +81,7 @@ export default function ProfilePage() {
     try {
       const res = await fetch(apiUrl("/me/link-farm"), {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(activeEstateId != null ? { "X-Estate-Id": String(activeEstateId) } : {}),
-        },
+        headers: await estateHeaders(),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);

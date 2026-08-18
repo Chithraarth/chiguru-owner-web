@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Send, Bot, User, Plus, Trash2, MessageSquare, Loader2, Sprout } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
-import { apiFetch, apiUrl } from "@/lib/api";
+import { apiFetch, apiUrl, estateHeaders } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { AiDisclaimer } from "@/components/ai-disclaimer";
 import { useSubScreenHistory } from "@/hooks/use-sub-screen-history";
@@ -115,7 +115,7 @@ export default function AgriAI() {
     try {
       const response = await fetch(apiUrl(`/openai/conversations/${convId}/messages`), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await estateHeaders(),
         body: JSON.stringify({ content: text }),
       });
 
