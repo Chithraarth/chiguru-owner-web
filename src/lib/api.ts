@@ -27,12 +27,18 @@ export function getActiveEstateId(): string | null {
  * Every request must carry the active estate (so the API scopes data to it)
  * and, once signed in, the Firebase ID token (so the API knows which Owner is
  * asking) — added here, not per call site, so neither can be forgotten.
+ *
+ * X-Actor-Role tells the backend this is the Owner app — needed only for the
+ * rare phone number that is both an Owner and, separately, an invited
+ * Manager elsewhere; the backend uses it to pick the right farm instead of
+ * guessing (see effectiveOwnerId in firebaseAuth.ts).
  */
 async function withAuthHeaders(headers: HeadersInit): Promise<HeadersInit> {
   const eid = getActiveEstateId();
   const token = await getIdToken();
   return {
     ...headers,
+    "X-Actor-Role": "owner",
     ...(eid ? { "X-Estate-Id": eid } : {}),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
