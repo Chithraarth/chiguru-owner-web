@@ -252,7 +252,7 @@ export default function DiseasePage() {
   })();
 
   return (
-    <PageShell title="Disease Detection" back="/">
+    <PageShell title="AI Disease Detection" back="/">
       <div className="p-4 space-y-4 pb-10">
 
         {/* Intro */}
