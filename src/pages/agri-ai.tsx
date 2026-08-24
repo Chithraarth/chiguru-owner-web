@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Send, Bot, User, Plus, Trash2, MessageSquare, Loader2, Sprout } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import { PageShell } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { apiFetch, apiUrl, estateHeaders } from "@/lib/api";
@@ -35,7 +36,13 @@ function MessageBubble({ msg, isStreaming }: { msg: Message; isStreaming?: boole
           ? "bg-primary text-primary-foreground rounded-tr-sm"
           : "bg-white border border-gray-100 text-gray-800 rounded-tl-sm shadow-sm"
       }`}>
-        <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+        {isUser ? (
+          <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+        ) : (
+          <div className="text-sm leading-relaxed prose prose-sm max-w-none prose-p:my-1.5 prose-headings:my-2 prose-headings:text-base prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-strong:font-semibold">
+            <ReactMarkdown>{msg.content}</ReactMarkdown>
+          </div>
+        )}
         {isStreaming && (
           <span className="inline-block w-1.5 h-4 bg-accent ml-0.5 animate-pulse rounded-sm" />
         )}
