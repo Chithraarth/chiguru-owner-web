@@ -533,7 +533,7 @@ export default function Subscription() {
                       <div>
                         <p className="font-bold text-gray-800">{plan.name}</p>
                         {plan.description && <p className="text-xs text-gray-500 mt-0.5">{plan.description}</p>}
-                        <p className="text-sm text-gray-500 mt-1">{fmtMoney(plan.price)}/{plan.billingPeriod === "monthly" ? "month" : plan.billingPeriod}</p>
+                        <p className="text-sm text-gray-500 mt-1">{fmtMoney(plan.price)}/{plan.billingPeriod === "yearly" ? "year" : plan.billingPeriod === "monthly" ? "month" : plan.billingPeriod}</p>
                       </div>
                       <Button
                         onClick={() => subscribe(plan)}
