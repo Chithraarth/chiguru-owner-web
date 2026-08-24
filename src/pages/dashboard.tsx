@@ -79,7 +79,7 @@ const DAILY_WORK = [
 ];
 
 const ADVISORY = [
-  { href: "/agri-doctor", icon: Stethoscope, chip: "bg-[#E4E7FB] text-[#5B6ED6]", title: "AI Agri Doctor", desc: "Ask a specialist" },
+  { href: "/agri-doctor", icon: Stethoscope, chip: "bg-[#E4E7FB] text-[#5B6ED6]", title: "Agri Doctor", desc: "Ask a specialist" },
   { href: "/disease", icon: ScanLine, chip: "bg-[#FBE4E4] text-[#D66B6B]", title: "AI Disease Check", desc: "Scan a leaf" },
   { href: "/agri-ai", icon: BotMessageSquare, chip: "bg-[#EDE4FB] text-[#8B5BD6]", title: "AI Agri Advisor", desc: "Daily guidance" },
   { href: "/year-plan", icon: CalendarCheck, chip: "bg-primary/10 text-primary", title: "Year Plan", desc: "12-month task calendar" },
