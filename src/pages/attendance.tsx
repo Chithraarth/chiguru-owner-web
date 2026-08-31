@@ -111,7 +111,7 @@ export default function AttendancePage() {
   const [aiScanning, setAiScanning] = useState(false);
   const [aiResult, setAiResult] = useState<{ count: number; confidence: string; notes: string; imagePreview: string } | null>(null);
   const [seasonEndLoading, setSeasonEndLoading] = useState(false);
-  const [seasonResult, setSeasonResult] = useState<{ aiSummary: string; totals: { totalEarned: number; totalAdvancePaid: number; totalWorkerPayments: number; totalRemaining: number } } | null>(null);
+  const [seasonResult, setSeasonResult] = useState<{ aiSummary: string; totals: { totalEarned: number; totalAdvancePaid: number; totalWorkerPayments: number; totalRemaining: number } | null } | null>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const updatePhotoRef = useRef<HTMLInputElement>(null);
   const checkoutRef = useRef<HTMLInputElement>(null);
@@ -1083,7 +1083,7 @@ export default function AttendancePage() {
                   <p className="text-sm font-bold text-primary">Final Season Account</p>
                   {group?.seasonClosed && <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">Closed</span>}
                 </div>
-                {seasonResult && (
+                {seasonResult?.totals && (
                   <div className="grid grid-cols-4 gap-2 text-center mb-3">
                     <div className="bg-gray-50 rounded-lg p-2">
                       <p className="text-xs text-gray-400">Total earned</p>
