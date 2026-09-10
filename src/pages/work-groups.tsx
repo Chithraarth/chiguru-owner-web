@@ -18,7 +18,7 @@ import { fmtMoney, curSymbol } from "@/lib/currency";
 interface WorkGroup {
   id: number; name: string;
   blockName?: string; category: string; labourType: string;
-  paymentType: string; rate: number; isActive: boolean; totalCostToDate: number;
+  paymentType: string; rate: number; isActive: boolean; totalCostToDate: number; todayCost: number;
   advancePerUnit?: number; payFrequency?: string; seasonClosed?: boolean;
   expectedWorkers?: number; loanTaken?: number; loanNotes?: string;
 }
@@ -210,9 +210,9 @@ export default function WorkGroups() {
                           {fmtMoney(advance)} adv + {fmtMoney(remaining)} held
                         </span>
                       )}
-                      {g.totalCostToDate > 0 && (
+                      {g.todayCost > 0 && (
                         <span className="text-xs text-gray-400">
-                          Total: {fmtMoney(Number(g.totalCostToDate))}
+                          Today: {fmtMoney(Number(g.todayCost))}
                         </span>
                       )}
                     </div>
