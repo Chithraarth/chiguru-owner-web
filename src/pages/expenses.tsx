@@ -225,7 +225,6 @@ export default function Expenses() {
   const [category, setCategory] = useState("Fertilizer");
   const [customCategory, setCustomCategory] = useState("");
   const [cropSel, setCropSel] = useState("");
-  const [newCropName, setNewCropName] = useState("");
   const [billImage, setBillImage] = useState<string | null>(null);
   const [viewImage, setViewImage] = useState<string | null>(null);
   const [period, setPeriod] = useState<PeriodFilter>("all");
@@ -258,7 +257,6 @@ export default function Expenses() {
       setCategory("Fertilizer");
       setCustomCategory("");
       setCropSel("");
-      setNewCropName("");
       setBillImage(null);
       toast({ title: "Expense saved" });
     },
@@ -295,25 +293,7 @@ export default function Expenses() {
     const finalCategory = category === "Other"
       ? (customCategory.trim() || "Other")
       : category;
-    let cropId: number | undefined;
-    if (cropSel === "__new__") {
-      const name = newCropName.trim();
-      if (!name) {
-        toast({ title: "Please type the crop name", variant: "destructive" });
-        return;
-      }
-      try {
-        const crop = await apiMutate<Crop>("POST", "/crops", { name });
-        if (!crop) throw new Error("no response");
-        qc.invalidateQueries({ queryKey: ["crops"] });
-        cropId = crop.id;
-      } catch {
-        toast({ title: "Could not create crop", variant: "destructive" });
-        return;
-      }
-    } else if (cropSel) {
-      cropId = parseInt(cropSel);
-    }
+    const cropId: number | undefined = cropSel ? parseInt(cropSel) : undefined;
     create.mutate({
       date: data.date,
       cropId,
@@ -454,7 +434,7 @@ export default function Expenses() {
           <div className="bg-white rounded-t-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-gray-800">Add Expense</h2>
-              <button onClick={() => { setShowForm(false); setNewCropName(""); }}><X className="h-5 w-5 text-gray-500" /></button>
+              <button onClick={() => setShowForm(false)}><X className="h-5 w-5 text-gray-500" /></button>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -500,20 +480,8 @@ export default function Expenses() {
                 <SelectTrigger className="mt-1"><SelectValue placeholder="All crops / Farm-wide" /></SelectTrigger>
                 <SelectContent>
                   {crops.map((c) => <SelectItem key={c.id} value={String(c.id)}>{cropLabel(c)}</SelectItem>)}
-                  <SelectItem value="__new__">
-                    <span className="text-primary font-medium">✏️ Type new crop</span>
-                  </SelectItem>
                 </SelectContent>
               </Select>
-              {cropSel === "__new__" && (
-                <Input
-                  value={newCropName}
-                  onChange={(e) => setNewCropName(e.target.value)}
-                  placeholder="Type crop name, e.g. Pepper"
-                  className="mt-2"
-                  autoFocus
-                />
-              )}
             </div>
 
             <div>
