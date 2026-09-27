@@ -19,12 +19,21 @@ export interface Estate {
   totalAcres?: string | null;
 }
 
+/** An estate as returned by /me/estates — tagged with how this person relates to it. */
+export interface MyEstate extends Estate {
+  ownerId: number;
+  relationship: "own" | "invited";
+}
+
 interface EstateContextValue {
   estates: Estate[];
   activeEstateId: number | null;
   activeEstate: Estate | null;
   setActiveEstate: (id: number) => void;
   isLoading: boolean;
+  /** Every estate this person may act on — their own + anything they're invited to. */
+  myEstates: MyEstate[];
+  myEstatesLoading: boolean;
 }
 
 const EstateContext = createContext<EstateContextValue | null>(null);
@@ -50,24 +59,38 @@ export function EstateProvider({ children }: { children: ReactNode }) {
     enabled: signedIn,
   });
 
-  // Default the active estate to the first one once estates load and none is
-  // chosen yet (or the stored id no longer exists, e.g. after a delete).
+  // Unlike /estates (scoped to whichever owner X-Estate-Id already resolves
+  // to), /me/estates lists every relationship this person has at once — used
+  // by the Choose Estate page to offer "my farm" and/or "invited to" options
+  // before any estate has been picked yet.
+  const { data: myEstates = [], isLoading: myEstatesLoading } = useQuery<MyEstate[]>({
+    queryKey: ["my-estates"],
+    queryFn: () => apiFetch("/me/estates"),
+    enabled: signedIn,
+  });
+
+  // Auto-pick the (only) estate when this person has exactly one
+  // relationship, or self-heal a stale activeId (deleted farm, revoked
+  // invite) back to it. When there's more than one, this deliberately does
+  // NOT pick for them — the Choose Estate page (gated in App.tsx on
+  // myEstates.length > 1 with no valid activeId) is what handles that case,
+  // so this never races it into silently picking the wrong relationship.
   useEffect(() => {
-    if (estates.length === 0) return;
-    const exists = activeId != null && estates.some((e) => e.id === activeId);
-    if (!exists) {
-      const first = estates[0].id;
-      setActiveId(first);
-      try {
-        localStorage.setItem(ACTIVE_ESTATE_KEY, String(first));
-      } catch {
-        /* ignore */
-      }
-      // The active estate changed (e.g. the previous one was deleted), so every
-      // estate-scoped query is now stale — refetch all but the estate list.
-      qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== "estates" });
+    if (myEstates.length === 0) return;
+    const exists = activeId != null && myEstates.some((e) => e.id === activeId);
+    if (exists) return;
+    if (myEstates.length !== 1) return;
+    const only = myEstates[0].id;
+    setActiveId(only);
+    try {
+      localStorage.setItem(ACTIVE_ESTATE_KEY, String(only));
+    } catch {
+      /* ignore */
     }
-  }, [estates, activeId, qc]);
+    // The active estate changed (e.g. the previous one was deleted), so every
+    // estate-scoped query is now stale — refetch all but the estate lists.
+    qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== "estates" && q.queryKey[0] !== "my-estates" });
+  }, [myEstates, activeId, qc]);
 
   const setActiveEstate = useCallback(
     (id: number) => {
@@ -78,9 +101,9 @@ export function EstateProvider({ children }: { children: ReactNode }) {
       }
       setActiveId(id);
       // Every data query carries the estate via header, so switching estates must
-      // refetch everything except the estate list itself.
+      // refetch everything except the estate lists themselves.
       qc.invalidateQueries({
-        predicate: (q) => q.queryKey[0] !== "estates",
+        predicate: (q) => q.queryKey[0] !== "estates" && q.queryKey[0] !== "my-estates",
       });
     },
     [qc],
@@ -97,6 +120,8 @@ export function EstateProvider({ children }: { children: ReactNode }) {
         activeEstate,
         setActiveEstate,
         isLoading,
+        myEstates,
+        myEstatesLoading,
       }}
     >
       {children}

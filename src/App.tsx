@@ -6,7 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SyncProvider } from "@/lib/sync-manager";
 import { LanguageProvider } from "@/lib/i18n";
-import { EstateProvider } from "@/lib/use-estate";
+import { EstateProvider, useEstate } from "@/lib/use-estate";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { DeviceGate } from "@/components/device-gate";
@@ -54,6 +54,7 @@ const SettingsPage = lazyWithReload(() => import("@/pages/settings"));
 const BinPage = lazyWithReload(() => import("@/pages/bin"));
 const MyAdsPage = lazyWithReload(() => import("@/pages/my-ads"));
 const ProfilePage = lazyWithReload(() => import("@/pages/profile"));
+const ChooseEstate = lazyWithReload(() => import("@/pages/choose-estate"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -169,12 +170,17 @@ function UnauthenticatedGate() {
 const SIGNED_OUT_ONLY_PATHS = new Set(["/login", "/signup"]);
 
 // Mandatory sign-in gate: every route above is unreachable until Firebase
-// reports a signed-in user. No onboarding/estate/subscription step is forced
-// here — a fresh Owner lands straight on the Dashboard, which shows its own
-// empty state until they create an estate.
+// reports a signed-in user. No onboarding/subscription step is forced here —
+// a fresh Owner lands straight on the Dashboard, which shows its own empty
+// state until they create an estate. The one exception is Choose Estate,
+// below: someone with more than one estate relationship (their own farm(s)
+// and/or one or more they're invited to) must pick which one to work on
+// before anything else can load, since X-Estate-Id is what the API uses to
+// resolve which Owner every subsequent request acts for.
 function Gated() {
   const { user, loading } = useAuth();
   const [location, navigate] = useLocation();
+  const { myEstates, myEstatesLoading, activeEstateId } = useEstate();
 
   useEffect(() => {
     if (user && SIGNED_OUT_ONLY_PATHS.has(location)) {
@@ -185,6 +191,10 @@ function Gated() {
   if (loading) return <PageLoader />;
   if (!user) return <UnauthenticatedGate />;
   if (SIGNED_OUT_ONLY_PATHS.has(location)) return <PageLoader />;
+
+  if (myEstatesLoading) return <PageLoader />;
+  const needsEstateChoice = myEstates.length > 1 && !myEstates.some((e) => e.id === activeEstateId);
+  if (needsEstateChoice) return <ChooseEstate />;
 
   return (
     <ErrorBoundary>
