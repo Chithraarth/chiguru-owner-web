@@ -284,7 +284,7 @@ export default function Subscription() {
         amount: Math.round(order.amount * 100),
         currency: order.currency,
         name: "Chiguru",
-        description: "Extra manager seat (one-time)",
+        description: "Extra invitee seat (one-time)",
         theme: { color: "#2E2A54" },
         handler: (response) => {
           apiMutate("POST", "/subscriptions/manager-seat-addon/verify", {
@@ -295,7 +295,7 @@ export default function Subscription() {
             .then((res) => {
               if (!res) throw new Error("offline");
               invalidateAll();
-              toast({ title: "Manager seat added", description: "You can now add one more manager — this seat never expires." });
+              toast({ title: "Invitee seat added", description: "You can now add one more invitee — this seat never expires." });
             })
             .catch((err: unknown) => {
               const msg = err instanceof ApiError ? (err.body?.message ?? "Please contact support if this keeps happening.") : "Please contact support if this keeps happening.";
@@ -419,7 +419,7 @@ export default function Subscription() {
                 <div className="mt-3 pt-3 border-t border-white/20 flex items-center gap-2 text-sm">
                   <Users className="h-4 w-4" />
                   <span>
-                    {me?.entitlement.managersUsed}/{me?.entitlement.managerLimit} managers used
+                    {me?.entitlement.managersUsed}/{me?.entitlement.managerLimit} invitees used
                     {" · "}
                     {me?.entitlement.remainingManagers} remaining
                     {!!me?.entitlement.extraManagerSeats && ` (includes ${me.entitlement.extraManagerSeats} purchased)`}
@@ -434,7 +434,7 @@ export default function Subscription() {
                   {busySeatAddon ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
-                    `Add extra manager seat — ₹${me?.entitlement.managerSeatAddonPrice ?? 199} one-time`
+                    `Add extra invitee seat — ₹${me?.entitlement.managerSeatAddonPrice ?? 99} one-time`
                   )}
                 </Button>
               </section>
@@ -444,7 +444,7 @@ export default function Subscription() {
                   <Lock className="h-5 w-5" />
                   <h2 className="font-bold">Subscribe to unlock</h2>
                 </div>
-                <p className="text-primary-foreground/80 text-sm mt-1">Pick a plan below to run your whole farm and add managers.</p>
+                <p className="text-primary-foreground/80 text-sm mt-1">Subscribe below to run your whole farm and add invitees.</p>
               </section>
             )}
 
@@ -550,7 +550,7 @@ export default function Subscription() {
                       </Button>
                     </div>
                     <p className="mt-2 text-xs text-gray-500">
-                      {plan.managerLimit} manager{plan.managerLimit > 1 ? "s" : ""} included
+                      {plan.managerLimit} invitee{plan.managerLimit > 1 ? "s" : ""} included
                     </p>
                   </div>
                 );
