@@ -1,7 +1,8 @@
 import { Suspense } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
-import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
+import { apiFetch } from "@/lib/api";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SyncProvider } from "@/lib/sync-manager";
@@ -55,6 +56,7 @@ const BinPage = lazyWithReload(() => import("@/pages/bin"));
 const MyAdsPage = lazyWithReload(() => import("@/pages/my-ads"));
 const ProfilePage = lazyWithReload(() => import("@/pages/profile"));
 const ChooseEstate = lazyWithReload(() => import("@/pages/choose-estate"));
+const PendingInvites = lazyWithReload(() => import("@/pages/pending-invites"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -181,6 +183,16 @@ function Gated() {
   const { user, loading } = useAuth();
   const [location, navigate] = useLocation();
   const { myEstates, myEstatesLoading, activeEstateId } = useEstate();
+  const qc = useQueryClient();
+
+  // Checked once per sign-in, before anything else can render - an invite
+  // gives no access at all until explicitly accepted (see
+  // PendingInvites and the backend's routes/invites.ts).
+  const myInvitesQuery = useQuery<{ id: number }[]>({
+    queryKey: ["my-invites"],
+    queryFn: () => apiFetch("/me/invites"),
+    enabled: !!user,
+  });
 
   useEffect(() => {
     if (user && SIGNED_OUT_ONLY_PATHS.has(location)) {
@@ -192,7 +204,23 @@ function Gated() {
   if (!user) return <UnauthenticatedGate />;
   if (SIGNED_OUT_ONLY_PATHS.has(location)) return <PageLoader />;
 
-  if (myEstatesLoading) return <PageLoader />;
+  if (myEstatesLoading || myInvitesQuery.isLoading) return <PageLoader />;
+
+  // Any invite this person hasn't yet accepted/declined must be resolved
+  // before anything else - it never contributes to myEstates until then, so
+  // showing this first (rather than after Choose Estate) means a first-time
+  // invitee is never asked to "choose" between farms they haven't agreed to
+  // help with yet.
+  if ((myInvitesQuery.data?.length ?? 0) > 0) {
+    return (
+      <PendingInvites
+        onDone={() => {
+          qc.invalidateQueries({ queryKey: ["my-estates"] });
+        }}
+      />
+    );
+  }
+
   const needsEstateChoice = myEstates.length > 1 && !myEstates.some((e) => e.id === activeEstateId);
   if (needsEstateChoice) return <ChooseEstate />;
 
