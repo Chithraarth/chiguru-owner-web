@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Crown, Check, Loader2, Lock, Share2, PartyPopper, Users, Receipt, AlertTriangle } from "lucide-react";
+import { Crown, Check, Loader2, Lock, Users, Receipt, AlertTriangle } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -81,22 +81,6 @@ type FlowState =
   | "failed"
   | "cancelled_by_user";
 
-const SHARE_TARGET = 3;
-const SHARE_MESSAGE = "I'm running my farm on Chiguru — attendance, expenses, harvest and Agri Doctor, all in one app. Try it:";
-const SHARE_LINK = "https://thechiguru.com";
-interface ShareOption {
-  id: string;
-  label: string;
-  url: ((text: string, link: string) => string) | null;
-}
-const SHARE_OPTIONS: ShareOption[] = [
-  { id: "whatsapp", label: "WhatsApp", url: (t, l) => `https://wa.me/?text=${encodeURIComponent(`${t} ${l}`)}` },
-  { id: "facebook", label: "Facebook", url: (_t, l) => `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(l)}` },
-  { id: "x", label: "X (Twitter)", url: (t, l) => `https://twitter.com/intent/tweet?text=${encodeURIComponent(t)}&url=${encodeURIComponent(l)}` },
-  { id: "telegram", label: "Telegram", url: (t, l) => `https://t.me/share/url?url=${encodeURIComponent(l)}&text=${encodeURIComponent(t)}` },
-  { id: "other", label: "Instagram / more", url: null },
-];
-
 function fmtDate(iso?: string | null) {
   if (!iso) return "";
   return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
@@ -129,7 +113,6 @@ export default function Subscription() {
   const qc = useQueryClient();
   const [flow, setFlow] = useState<FlowState>("idle");
   const [busyPlanId, setBusyPlanId] = useState<number | null>(null);
-  const [busyShare, setBusyShare] = useState<string | null>(null);
   const [busyRecharge, setBusyRecharge] = useState<number | null>(null);
   const [rechargeInput, setRechargeInput] = useState("");
   const [cancelling, setCancelling] = useState(false);
@@ -329,43 +312,9 @@ export default function Subscription() {
     }
   }
 
-  async function share(opt: ShareOption) {
-    if (opt.url) {
-      window.open(opt.url(SHARE_MESSAGE, SHARE_LINK), "_blank", "noopener");
-    } else if (navigator.share) {
-      try {
-        await navigator.share({ title: "Chiguru", text: SHARE_MESSAGE, url: SHARE_LINK });
-      } catch {
-        return;
-      }
-    } else {
-      try {
-        await navigator.clipboard.writeText(`${SHARE_MESSAGE} ${SHARE_LINK}`);
-        toast({ title: "Link copied", description: "Paste it wherever you'd like to share." });
-      } catch {
-        /* ignore */
-      }
-    }
-    setBusyShare(opt.id);
-    try {
-      const res = await apiMutate<{ creditGiven?: boolean; balance?: number }>("POST", "/wallet/share", { platform: opt.id });
-      invalidateAll();
-      if (res?.creditGiven) {
-        toast({ title: "₹300 wallet credit!", description: "Thanks for spreading the word about Chiguru." });
-      }
-    } catch {
-      toast({ title: "Couldn't record your share — try again", variant: "destructive" });
-    } finally {
-      setBusyShare(null);
-    }
-  }
-
   const plans = plansData?.plans ?? [];
   const sub = me?.subscription ?? null;
   const isActive = sub?.status === "ACTIVE" || sub?.status === "GRACE_PERIOD";
-  const shared = new Set(wallet?.share.platforms ?? []);
-  const shareClaimed = !!wallet?.share.rewarded;
-  const shareCount = Math.min(shared.size, SHARE_TARGET);
 
   const busy = flow === "creating" || flow === "opening_checkout" || flow === "verifying";
 
@@ -461,10 +410,10 @@ export default function Subscription() {
                   <input
                     type="number"
                     inputMode="numeric"
-                    min={wallet?.minRechargeAmount ?? 199}
+                    min={wallet?.minRechargeAmount ?? 200}
                     value={rechargeInput}
                     onChange={(e) => setRechargeInput(e.target.value)}
-                    placeholder={`Min ₹${wallet?.minRechargeAmount ?? 199}`}
+                    placeholder={`Min ₹${wallet?.minRechargeAmount ?? 200}`}
                     disabled={busyRecharge !== null}
                     className="w-full bg-transparent text-white placeholder:text-white/50 py-3 text-lg font-bold outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
@@ -474,52 +423,14 @@ export default function Subscription() {
                   disabled={
                     busyRecharge !== null ||
                     !Number.isFinite(Number(rechargeInput)) ||
-                    Math.floor(Number(rechargeInput)) < (wallet?.minRechargeAmount ?? 199)
+                    Math.floor(Number(rechargeInput)) < (wallet?.minRechargeAmount ?? 200)
                   }
                   className="rounded-xl bg-white text-primary font-bold px-5 disabled:opacity-50 hover:bg-white/90 transition-colors"
                 >
                   {busyRecharge !== null ? <Loader2 className="h-5 w-5 animate-spin" /> : "Add"}
                 </button>
               </div>
-              <p className="text-[11px] text-white/60 mt-2">Minimum ₹{wallet?.minRechargeAmount ?? 199}</p>
-            </section>
-
-            {/* Share on 3 apps → ₹300 wallet credit */}
-            <section className="rounded-2xl p-4 border-2 border-emerald-200 bg-emerald-50/60">
-              <div className="flex items-center gap-2">
-                {shareClaimed ? <PartyPopper className="h-5 w-5 text-emerald-600" /> : <Share2 className="h-5 w-5 text-emerald-600" />}
-                <h2 className="font-bold text-gray-900">{shareClaimed ? "₹300 wallet credit claimed!" : "Share on 3 apps → ₹300 wallet credit"}</h2>
-              </div>
-              {shareClaimed ? (
-                <p className="text-sm text-gray-600 mt-1">Thanks for sharing Chiguru — ₹300 has been added to your wallet.</p>
-              ) : (
-                <>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Post about Chiguru on any 3 different apps and get ₹300 credited to your wallet (used for AI features like disease check and the crop advisor).
-                  </p>
-                  <div className="mt-2 flex items-center gap-1.5">
-                    {Array.from({ length: SHARE_TARGET }).map((_, i) => (
-                      <span key={i} className={`h-2.5 w-8 rounded-full ${i < shareCount ? "bg-emerald-500" : "bg-emerald-200"}`} />
-                    ))}
-                    <span className="ml-1 text-xs font-semibold text-emerald-700">{shareCount}/{SHARE_TARGET} shared</span>
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {SHARE_OPTIONS.map((opt) => {
-                      const done = shared.has(opt.id);
-                      return (
-                        <button
-                          key={opt.id}
-                          onClick={() => share(opt)}
-                          disabled={busyShare === opt.id}
-                          className={`px-3 h-10 rounded-xl text-sm font-semibold border ${done ? "bg-emerald-600 text-white border-emerald-600" : "bg-white text-gray-800 border-gray-300 active:bg-gray-50"}`}
-                        >
-                          {done ? "✓ " : ""}{opt.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
+              <p className="text-[11px] text-white/60 mt-2">Minimum ₹{wallet?.minRechargeAmount ?? 200}</p>
             </section>
 
             {/* Plans — DB-driven, nothing hardcoded */}
