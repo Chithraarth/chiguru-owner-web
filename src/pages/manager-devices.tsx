@@ -30,7 +30,10 @@ export default function ManagerDevices() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const { estates } = useEstate();
+  // Invites are only ever for your own farms — never one you were invited to
+  // (/estates would list the other Owner's farms while one of theirs is active).
+  const { myEstates } = useEstate();
+  const estates = myEstates.filter((e) => e.relationship === "own");
   const [adding, setAdding] = useState(false);
   const [mode, setMode] = useState<ContactMode>("phone");
   const [name, setName] = useState("");
