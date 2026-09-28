@@ -40,9 +40,19 @@ interface EstateContextValue {
    * load (offline), so an invitee still gets the invitee app.
    */
   activeRelationship: "own" | "invited" | null;
+  /**
+   * True after someone working on an invited farm chose "Set up my own farm":
+   * no estate is active and the invited one isn't auto-picked again, so the
+   * Owner app's own farm setup shows. Cleared by picking or creating a farm.
+   */
+  ownFarmSetup: boolean;
+  startOwnFarmSetup: () => void;
+  /** Forget the chosen farm (on sign-out / account switch) so the next sign-in asks again. */
+  resetEstateChoice: () => void;
 }
 
 const ACTIVE_RELATIONSHIP_KEY = "activeEstateRelationship";
+const OWN_FARM_SETUP_KEY = "ownFarmSetupRequested";
 
 function readRememberedRelationship(): "own" | "invited" | null {
   try {
@@ -67,6 +77,14 @@ export function EstateProvider({ children }: { children: ReactNode }) {
   // read useAuth() — it watches Firebase's own auth state directly instead,
   // purely to avoid firing an authenticated /estates call for a signed-out
   // visitor (who'd just get a 401 back).
+  const [ownFarmSetup, setOwnFarmSetup] = useState(() => {
+    try {
+      return localStorage.getItem(OWN_FARM_SETUP_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+
   const [signedIn, setSignedIn] = useState(() => auth.currentUser != null);
   useEffect(() => onAuthStateChanged(auth, (u) => setSignedIn(u != null)), []);
 
@@ -109,7 +127,10 @@ export function EstateProvider({ children }: { children: ReactNode }) {
     }
     const exists = activeId != null && myEstates.some((e) => e.id === activeId);
     if (exists) return;
-    if (myEstates.length !== 1) return;
+    if (ownFarmSetup) return;
+    // Only a plain Owner with a single farm and no invites goes straight in;
+    // anyone with an invited farm always picks on the Choose Estate page.
+    if (myEstates.length !== 1 || myEstates[0].relationship !== "own") return;
     const only = myEstates[0].id;
     setActiveId(only);
     try {
@@ -120,7 +141,7 @@ export function EstateProvider({ children }: { children: ReactNode }) {
     // The active estate changed (e.g. the previous one was deleted), so every
     // estate-scoped query is now stale — refetch all but the estate lists.
     qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== "estates" && q.queryKey[0] !== "my-estates" });
-  }, [myEstates, myEstatesLoaded, activeId, qc]);
+  }, [myEstates, myEstatesLoaded, activeId, ownFarmSetup, qc]);
 
   const setActiveEstate = useCallback(
     (id: number) => {
@@ -130,6 +151,12 @@ export function EstateProvider({ children }: { children: ReactNode }) {
         /* ignore */
       }
       setActiveId(id);
+      setOwnFarmSetup(false);
+      try {
+        localStorage.removeItem(OWN_FARM_SETUP_KEY);
+      } catch {
+        /* ignore */
+      }
       // Every data query carries the estate via header, so switching estates must
       // refetch everything except the estate lists themselves.
       qc.invalidateQueries({
@@ -155,6 +182,33 @@ export function EstateProvider({ children }: { children: ReactNode }) {
   }, [liveRelationship]);
   const activeRelationship = myEstatesLoaded ? liveRelationship : rememberedRelationship;
 
+  const startOwnFarmSetup = useCallback(() => {
+    try {
+      localStorage.setItem(OWN_FARM_SETUP_KEY, "1");
+      localStorage.removeItem(ACTIVE_ESTATE_KEY);
+      localStorage.removeItem(ACTIVE_RELATIONSHIP_KEY);
+    } catch {
+      /* ignore */
+    }
+    setOwnFarmSetup(true);
+    setActiveId(null);
+    setRememberedRelationship(null);
+    qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== "my-estates" });
+  }, [qc]);
+
+  const resetEstateChoice = useCallback(() => {
+    try {
+      localStorage.removeItem(ACTIVE_ESTATE_KEY);
+      localStorage.removeItem(ACTIVE_RELATIONSHIP_KEY);
+      localStorage.removeItem(OWN_FARM_SETUP_KEY);
+    } catch {
+      /* ignore */
+    }
+    setActiveId(null);
+    setRememberedRelationship(null);
+    setOwnFarmSetup(false);
+  }, []);
+
   return (
     <EstateContext.Provider
       value={{
@@ -166,6 +220,9 @@ export function EstateProvider({ children }: { children: ReactNode }) {
         myEstates,
         myEstatesLoading,
         activeRelationship,
+        ownFarmSetup,
+        startOwnFarmSetup,
+        resetEstateChoice,
       }}
     >
       {children}

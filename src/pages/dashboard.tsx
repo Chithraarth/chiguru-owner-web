@@ -129,7 +129,9 @@ function ToolSection({ title, items }: { title: string; items: ToolItem[] }) {
 export default function Dashboard() {
   const { t } = useT();
   const qc = useQueryClient();
-  const { estates, activeEstateId, activeEstate, setActiveEstate } = useEstate();
+  const { estates, activeEstateId, activeEstate, setActiveEstate, myEstates } = useEstate();
+  // Farms other Owners invited you to - opening one switches to invitee mode.
+  const invitedEstates = myEstates.filter((e) => e.relationship === "invited");
   const [showTour, setShowTour] = useState(false);
   const [showEstates, setShowEstates] = useState(false);
 
@@ -235,7 +237,7 @@ export default function Dashboard() {
                     </div>
                     <p className="text-muted-foreground text-sm mt-1">{profile.totalAcres} {t("onb.acres")} · {summary?.totalCrops ?? 0} {t("more.crops")}</p>
                   </div>
-                  {estates.length > 0 && (
+                  {(estates.length > 0 || invitedEstates.length > 0) && (
                     <button
                       onClick={() => setShowEstates((s) => !s)}
                       className="shrink-0 flex items-center gap-1 bg-[#E9E6FB] hover:bg-[#DDD8F7] active:bg-[#DDD8F7] rounded-xl px-3 py-2 text-sm font-medium text-[#6C5DD3]"
@@ -247,7 +249,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {showEstates && estates.length > 0 && (
+              {showEstates && (estates.length > 0 || invitedEstates.length > 0) && (
                 <div className="absolute z-30 left-0 right-0 mt-2 bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
                   {estates.map((e) => (
                     <button
@@ -273,6 +275,25 @@ export default function Dashboard() {
                       )}
                     </button>
                   ))}
+                  {invitedEstates.length > 0 && (
+                    <>
+                      <p className="px-4 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                        Invited to
+                      </p>
+                      {invitedEstates.map((e) => (
+                        <button
+                          key={e.id}
+                          onClick={() => {
+                            setActiveEstate(e.id);
+                            setShowEstates(false);
+                          }}
+                          className="w-full text-left px-4 py-3 border-b border-gray-50 last:border-0"
+                        >
+                          <span className="block font-medium text-gray-800 truncate capitalize">{e.farmName}</span>
+                        </button>
+                      ))}
+                    </>
+                  )}
                   <Link href="/crops?new=1">
                     <div
                       onClick={() => setShowEstates(false)}
@@ -310,6 +331,24 @@ export default function Dashboard() {
                   </Link>
                 </div>
               </div>
+
+              {/* No farm of your own yet, but invited to others: a way back. */}
+              {invitedEstates.length > 0 && (
+                <div className="bg-card rounded-2xl p-4 border border-border/60 shadow-sm">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Invited to</p>
+                  <div className="space-y-2">
+                    {invitedEstates.map((e) => (
+                      <button
+                        key={e.id}
+                        onClick={() => setActiveEstate(e.id)}
+                        className="w-full text-left rounded-xl border border-border/60 px-4 py-3 font-medium capitalize hover:bg-primary/5"
+                      >
+                        {e.farmName}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Setup progress checklist */}
               <div className="bg-card rounded-2xl p-5 border border-border/60 shadow-sm">

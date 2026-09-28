@@ -1,14 +1,14 @@
-import { Home, Users, Loader2 } from "lucide-react";
+import { Home, Users, Loader2, Plus } from "lucide-react";
 import { useEstate, type MyEstate } from "@/lib/use-estate";
 
-// Shown once, right after sign-in, whenever this person has more than one
-// estate relationship to pick from — their own farm(s), and/or one or more
-// farms they've been invited to help manage. Picking one sets activeEstateId,
+// Shown right after sign-in whenever this person has more than one farm, or
+// any farm they've been invited to help manage — their own farm(s) open the
+// full Owner app, an invited one opens the invitee app. Picking one sets activeEstateId,
 // which every API call already sends as X-Estate-Id; the backend resolves
 // who that makes this person (owner or invitee) from that header alone, so
 // nothing else needs to happen here.
 export default function ChooseEstate() {
-  const { myEstates, myEstatesLoading, setActiveEstate } = useEstate();
+  const { myEstates, myEstatesLoading, setActiveEstate, startOwnFarmSetup } = useEstate();
 
   if (myEstatesLoading) {
     return (
@@ -27,7 +27,7 @@ export default function ChooseEstate() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Choose a farm</h1>
           <p className="text-sm text-gray-500 mt-1">
-            You have access to more than one farm. Pick which one to work on.
+            Pick which farm to work on. You can switch any time.
           </p>
         </div>
 
@@ -51,6 +51,15 @@ export default function ChooseEstate() {
               ))}
             </div>
           </div>
+        )}
+
+        {own.length === 0 && (
+          <button
+            onClick={startOwnFarmSetup}
+            className="w-full flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-primary/30 bg-primary/5 p-4 font-semibold text-primary hover:bg-primary/10 transition-colors"
+          >
+            <Plus className="h-4 w-4" /> Set up my own farm
+          </button>
         )}
       </div>
     </div>

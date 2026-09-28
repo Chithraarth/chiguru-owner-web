@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ClipboardCheck, Camera, ChevronRight, LogOut, Sprout, CloudUpload, CheckCircle2, WifiOff, Check, ChevronDown, RefreshCw, Loader2, Pencil, ReceiptText, CalendarCheck } from "lucide-react";
+import { ClipboardCheck, Camera, ChevronRight, LogOut, Sprout, CloudUpload, CheckCircle2, WifiOff, Check, ChevronDown, RefreshCw, Loader2, Pencil, ReceiptText, CalendarCheck, Plus } from "lucide-react";
 import type { Pairing } from "@/invitee/pairing";
 import type { Estate } from "@/invitee/api";
 import {
@@ -29,9 +29,11 @@ interface HomeProps {
   onExpense: () => void;
   onPlan: () => void;
   onExit: () => void;
+  /** Leave the invited farm to set up this person's own farm; omitted when they already have one. */
+  onSetUpOwnFarm?: () => void;
 }
 
-export function HomeScreen({ pairing, estates, activeEstateId, onSwitchEstate, onRenameEstate, pendingCount, isOnline, lastSyncTime, syncing, onSync, onAttendance, onWorkUpdate, onExpense, onPlan, onExit }: HomeProps) {
+export function HomeScreen({ pairing, estates, activeEstateId, onSwitchEstate, onRenameEstate, pendingCount, isOnline, lastSyncTime, syncing, onSync, onAttendance, onWorkUpdate, onExpense, onPlan, onExit, onSetUpOwnFarm }: HomeProps) {
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<Estate | null>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -83,7 +85,7 @@ export function HomeScreen({ pairing, estates, activeEstateId, onSwitchEstate, o
               <Sprout className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs text-primary-foreground/80">Manager device</p>
+              <p className="text-xs text-primary-foreground/80">Invited farm</p>
               <div className="relative">
                 <button
                   onClick={() => canOpenMenu && setSwitcherOpen((v) => !v)}
@@ -96,9 +98,19 @@ export function HomeScreen({ pairing, estates, activeEstateId, onSwitchEstate, o
               </div>
             </div>
           </div>
-          <button onClick={onExit} className="p-2 text-primary-foreground/80 hover:text-white flex-shrink-0" aria-label="Exit">
-            <LogOut className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {canOpenMenu && (
+              <button
+                onClick={() => setSwitcherOpen((v) => !v)}
+                className="flex items-center gap-1.5 rounded-xl bg-white/15 hover:bg-white/25 px-3 py-2 text-sm font-medium"
+              >
+                <RefreshCw className="h-4 w-4" /> Switch farm
+              </button>
+            )}
+            <button onClick={onExit} className="p-2 text-primary-foreground/80 hover:text-white" aria-label="Sign out">
+              <LogOut className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         {/* Estate menu — each estate has its own work groups, attendance and
@@ -109,7 +121,7 @@ export function HomeScreen({ pairing, estates, activeEstateId, onSwitchEstate, o
         {switcherOpen && canOpenMenu && (
           <div className="mt-3 bg-white rounded-2xl shadow-lg overflow-hidden">
             <p className="px-4 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-              {canSwitch ? "Choose or rename an estate" : "Your estate"}
+              {canSwitch ? "Switch farm" : "Your farms"}
             </p>
             {estates.map((e) => {
               const isActive = String(e.id) === activeEstateId;
@@ -146,6 +158,17 @@ export function HomeScreen({ pairing, estates, activeEstateId, onSwitchEstate, o
                 </div>
               );
             })}
+            {onSetUpOwnFarm && (
+              <button
+                onClick={() => {
+                  setSwitcherOpen(false);
+                  onSetUpOwnFarm();
+                }}
+                className="w-full flex items-center gap-2 px-4 py-3 text-sm font-medium text-primary bg-primary/5 active:bg-primary/10"
+              >
+                <Plus className="h-4 w-4" /> Set up my own farm
+              </button>
+            )}
           </div>
         )}
 
