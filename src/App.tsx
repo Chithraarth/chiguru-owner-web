@@ -76,17 +76,24 @@ const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 // Keeps the query cache from leaking data across account switches (e.g. signing
 // out and into a different Owner on the same device).
 function AuthQueryClientCacheInvalidator() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const qc = useQueryClient();
+  const { resetEstateChoice } = useEstate();
   const prevUidRef = useRef<string | null | undefined>(undefined);
 
   useEffect(() => {
+    // While Firebase restores the session on load, user is briefly null -
+    // that's not a sign-out, so don't treat it as an account change.
+    if (loading) return;
     const uid = user?.uid ?? null;
     if (prevUidRef.current !== undefined && prevUidRef.current !== uid) {
       qc.clear();
+      // The chosen farm belongs to the previous sign-in too - the next one
+      // picks again on Choose Estate.
+      resetEstateChoice();
     }
     prevUidRef.current = uid;
-  }, [user?.uid, qc]);
+  }, [user?.uid, loading, qc, resetEstateChoice]);
 
   return null;
 }
@@ -224,8 +231,12 @@ function Gated() {
 
   // Skipped while setting up your own farm from invitee mode - no farm is
   // active on purpose until the new one is created.
+  // Anyone with more than one farm, or any invited farm, picks which one
+  // to work on first - only a plain Owner with a single farm goes straight in.
   const needsEstateChoice =
-    !ownFarmSetup && myEstates.length > 1 && !myEstates.some((e) => e.id === activeEstateId);
+    !ownFarmSetup &&
+    (myEstates.length > 1 || myEstates.some((e) => e.relationship === "invited")) &&
+    !myEstates.some((e) => e.id === activeEstateId);
   if (needsEstateChoice) return <ChooseEstate />;
 
   // A farm you were invited to gets exactly the old Manager app; your own

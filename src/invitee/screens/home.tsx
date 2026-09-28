@@ -98,9 +98,19 @@ export function HomeScreen({ pairing, estates, activeEstateId, onSwitchEstate, o
               </div>
             </div>
           </div>
-          <button onClick={onExit} className="p-2 text-primary-foreground/80 hover:text-white flex-shrink-0" aria-label="Exit">
-            <LogOut className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {canOpenMenu && (
+              <button
+                onClick={() => setSwitcherOpen((v) => !v)}
+                className="flex items-center gap-1.5 rounded-xl bg-white/15 hover:bg-white/25 px-3 py-2 text-sm font-medium"
+              >
+                <RefreshCw className="h-4 w-4" /> Switch farm
+              </button>
+            )}
+            <button onClick={onExit} className="p-2 text-primary-foreground/80 hover:text-white" aria-label="Sign out">
+              <LogOut className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         {/* Estate menu — each estate has its own work groups, attendance and

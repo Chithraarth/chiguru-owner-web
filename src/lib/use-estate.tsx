@@ -47,6 +47,8 @@ interface EstateContextValue {
    */
   ownFarmSetup: boolean;
   startOwnFarmSetup: () => void;
+  /** Forget the chosen farm (on sign-out / account switch) so the next sign-in asks again. */
+  resetEstateChoice: () => void;
 }
 
 const ACTIVE_RELATIONSHIP_KEY = "activeEstateRelationship";
@@ -126,7 +128,9 @@ export function EstateProvider({ children }: { children: ReactNode }) {
     const exists = activeId != null && myEstates.some((e) => e.id === activeId);
     if (exists) return;
     if (ownFarmSetup) return;
-    if (myEstates.length !== 1) return;
+    // Only a plain Owner with a single farm and no invites goes straight in;
+    // anyone with an invited farm always picks on the Choose Estate page.
+    if (myEstates.length !== 1 || myEstates[0].relationship !== "own") return;
     const only = myEstates[0].id;
     setActiveId(only);
     try {
@@ -192,6 +196,19 @@ export function EstateProvider({ children }: { children: ReactNode }) {
     qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== "my-estates" });
   }, [qc]);
 
+  const resetEstateChoice = useCallback(() => {
+    try {
+      localStorage.removeItem(ACTIVE_ESTATE_KEY);
+      localStorage.removeItem(ACTIVE_RELATIONSHIP_KEY);
+      localStorage.removeItem(OWN_FARM_SETUP_KEY);
+    } catch {
+      /* ignore */
+    }
+    setActiveId(null);
+    setRememberedRelationship(null);
+    setOwnFarmSetup(false);
+  }, []);
+
   return (
     <EstateContext.Provider
       value={{
@@ -205,6 +222,7 @@ export function EstateProvider({ children }: { children: ReactNode }) {
         activeRelationship,
         ownFarmSetup,
         startOwnFarmSetup,
+        resetEstateChoice,
       }}
     >
       {children}
