@@ -1,5 +1,6 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import { getIdToken } from "@/lib/firebase";
+import { getCurrentEstateId } from "./active-estate";
 
 // Replayed writes must carry the signed-in user's token like any other
 // request - the API no longer accepts anonymous estate writes.
@@ -52,14 +53,10 @@ export function newLocalId(): string {
   return `eu-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-// Read the active estate id straight from localStorage. Defined here (not imported
-// from api.ts) to avoid a circular import; offline-db is imported by api.ts.
+// The estate this tab is working on (see active-estate.ts) - imported from
+// there rather than api.ts to avoid a circular import.
 function readActiveEstateId(): string | null {
-  try {
-    return localStorage.getItem("activeEstateId");
-  } catch {
-    return null;
-  }
+  return getCurrentEstateId();
 }
 
 interface SyncQueueItem {

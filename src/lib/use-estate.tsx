@@ -8,6 +8,7 @@ import {
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch, ACTIVE_ESTATE_KEY, getActiveEstateId } from "./api";
+import { setCurrentEstateId } from "./active-estate";
 import { auth, onAuthStateChanged } from "./firebase";
 
 export interface Estate {
@@ -67,10 +68,15 @@ const EstateContext = createContext<EstateContextValue | null>(null);
 
 export function EstateProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
-  const [activeId, setActiveId] = useState<number | null>(() => {
+  const [activeId, setActiveIdState] = useState<number | null>(() => {
     const raw = getActiveEstateId();
     return raw ? Number(raw) : null;
   });
+  // State and the id API requests send must never differ - update both at once.
+  const setActiveId = useCallback((id: number | null) => {
+    setCurrentEstateId(id);
+    setActiveIdState(id);
+  }, []);
 
   // This provider sits above AuthProvider in the tree (so the whole app,
   // including the signed-out landing page, can render under it), so it can't
@@ -141,7 +147,7 @@ export function EstateProvider({ children }: { children: ReactNode }) {
     // The active estate changed (e.g. the previous one was deleted), so every
     // estate-scoped query is now stale — refetch all but the estate lists.
     qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== "estates" && q.queryKey[0] !== "my-estates" });
-  }, [myEstates, myEstatesLoaded, activeId, ownFarmSetup, qc]);
+  }, [myEstates, myEstatesLoaded, activeId, ownFarmSetup, qc, setActiveId]);
 
   const setActiveEstate = useCallback(
     (id: number) => {
@@ -163,7 +169,7 @@ export function EstateProvider({ children }: { children: ReactNode }) {
         predicate: (q) => q.queryKey[0] !== "estates" && q.queryKey[0] !== "my-estates",
       });
     },
-    [qc],
+    [qc, setActiveId],
   );
 
   const activeEstate =
@@ -194,7 +200,7 @@ export function EstateProvider({ children }: { children: ReactNode }) {
     setActiveId(null);
     setRememberedRelationship(null);
     qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== "my-estates" });
-  }, [qc]);
+  }, [qc, setActiveId]);
 
   const resetEstateChoice = useCallback(() => {
     try {
@@ -207,7 +213,24 @@ export function EstateProvider({ children }: { children: ReactNode }) {
     setActiveId(null);
     setRememberedRelationship(null);
     setOwnFarmSetup(false);
-  }, []);
+  }, [setActiveId]);
+
+  // Another tab switched farm (or started own-farm setup): follow it, so two
+  // tabs never show one farm while acting on another.
+  useEffect(() => {
+    function onStorage(e: StorageEvent) {
+      if (e.key === ACTIVE_ESTATE_KEY) {
+        setActiveId(e.newValue ? Number(e.newValue) : null);
+        qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== "my-estates" });
+      } else if (e.key === OWN_FARM_SETUP_KEY) {
+        setOwnFarmSetup(e.newValue === "1");
+      } else if (e.key === ACTIVE_RELATIONSHIP_KEY) {
+        setRememberedRelationship(e.newValue === "own" || e.newValue === "invited" ? e.newValue : null);
+      }
+    }
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [qc, setActiveId]);
 
   return (
     <EstateContext.Provider

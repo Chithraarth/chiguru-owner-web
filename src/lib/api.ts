@@ -1,5 +1,8 @@
 import { enqueueSync, fetchWithTimeout, looksLikeOurApi } from "./offline-db";
 import { getIdToken } from "./firebase";
+import { ACTIVE_ESTATE_KEY, getCurrentEstateId } from "./active-estate";
+
+export { ACTIVE_ESTATE_KEY };
 
 // A stalled request on a flaky network should fall back to the offline queue, not
 // hang the UI. Abort the immediate submit after this long and queue it for retry.
@@ -11,16 +14,9 @@ export function apiUrl(path: string) {
   return `${BASE}/api${path}`;
 }
 
-/** localStorage key holding the id of the estate the planter is currently viewing. */
-export const ACTIVE_ESTATE_KEY = "activeEstateId";
-
-/** Read the active estate id from localStorage (null if none picked yet). */
+/** The estate this tab is working on (null if none picked yet) - see active-estate.ts. */
 export function getActiveEstateId(): string | null {
-  try {
-    return localStorage.getItem(ACTIVE_ESTATE_KEY);
-  } catch {
-    return null;
-  }
+  return getCurrentEstateId();
 }
 
 /**
