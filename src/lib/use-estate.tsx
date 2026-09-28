@@ -34,6 +34,23 @@ interface EstateContextValue {
   /** Every estate this person may act on — their own + anything they're invited to. */
   myEstates: MyEstate[];
   myEstatesLoading: boolean;
+  /**
+   * Whether the active estate is this person's own or one they're invited
+   * to — live from /me/estates, or the last-known value when that couldn't
+   * load (offline), so an invitee still gets the invitee app.
+   */
+  activeRelationship: "own" | "invited" | null;
+}
+
+const ACTIVE_RELATIONSHIP_KEY = "activeEstateRelationship";
+
+function readRememberedRelationship(): "own" | "invited" | null {
+  try {
+    const v = localStorage.getItem(ACTIVE_RELATIONSHIP_KEY);
+    return v === "own" || v === "invited" ? v : null;
+  } catch {
+    return null;
+  }
 }
 
 const EstateContext = createContext<EstateContextValue | null>(null);
@@ -63,7 +80,7 @@ export function EstateProvider({ children }: { children: ReactNode }) {
   // to), /me/estates lists every relationship this person has at once — used
   // by the Choose Estate page to offer "my farm" and/or "invited to" options
   // before any estate has been picked yet.
-  const { data: myEstates = [], isLoading: myEstatesLoading } = useQuery<MyEstate[]>({
+  const { data: myEstates = [], isLoading: myEstatesLoading, isSuccess: myEstatesLoaded } = useQuery<MyEstate[]>({
     queryKey: ["my-estates"],
     queryFn: () => apiFetch("/me/estates"),
     enabled: signedIn,
@@ -76,7 +93,20 @@ export function EstateProvider({ children }: { children: ReactNode }) {
   // myEstates.length > 1 with no valid activeId) is what handles that case,
   // so this never races it into silently picking the wrong relationship.
   useEffect(() => {
-    if (myEstates.length === 0) return;
+    if (myEstates.length === 0) {
+      // Nothing left to act on (farm deleted, invite revoked) - stop sending
+      // a stale X-Estate-Id. Only after a successful load - a failed fetch
+      // (e.g. offline) also leaves the list empty.
+      if (myEstatesLoaded && activeId != null) {
+        setActiveId(null);
+        try {
+          localStorage.removeItem(ACTIVE_ESTATE_KEY);
+        } catch {
+          /* ignore */
+        }
+      }
+      return;
+    }
     const exists = activeId != null && myEstates.some((e) => e.id === activeId);
     if (exists) return;
     if (myEstates.length !== 1) return;
@@ -90,7 +120,7 @@ export function EstateProvider({ children }: { children: ReactNode }) {
     // The active estate changed (e.g. the previous one was deleted), so every
     // estate-scoped query is now stale — refetch all but the estate lists.
     qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== "estates" && q.queryKey[0] !== "my-estates" });
-  }, [myEstates, activeId, qc]);
+  }, [myEstates, myEstatesLoaded, activeId, qc]);
 
   const setActiveEstate = useCallback(
     (id: number) => {
@@ -112,6 +142,19 @@ export function EstateProvider({ children }: { children: ReactNode }) {
   const activeEstate =
     estates.find((e) => e.id === activeId) ?? null;
 
+  const liveRelationship = myEstates.find((e) => e.id === activeId)?.relationship ?? null;
+  const [rememberedRelationship, setRememberedRelationship] = useState(readRememberedRelationship);
+  useEffect(() => {
+    if (!liveRelationship) return;
+    setRememberedRelationship(liveRelationship);
+    try {
+      localStorage.setItem(ACTIVE_RELATIONSHIP_KEY, liveRelationship);
+    } catch {
+      /* ignore */
+    }
+  }, [liveRelationship]);
+  const activeRelationship = myEstatesLoaded ? liveRelationship : rememberedRelationship;
+
   return (
     <EstateContext.Provider
       value={{
@@ -122,6 +165,7 @@ export function EstateProvider({ children }: { children: ReactNode }) {
         isLoading,
         myEstates,
         myEstatesLoading,
+        activeRelationship,
       }}
     >
       {children}

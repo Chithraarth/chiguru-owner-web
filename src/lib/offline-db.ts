@@ -1,4 +1,12 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
+import { getIdToken } from "@/lib/firebase";
+
+// Replayed writes must carry the signed-in user's token like any other
+// request - the API no longer accepts anonymous estate writes.
+async function authHeader(): Promise<Record<string, string>> {
+  const token = await getIdToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 // A queued write that keeps getting rejected (permanently bad payload, e.g. an
 // oversized base64 video, or a route that 404s) is dropped after this many tries
@@ -278,6 +286,7 @@ async function runSyncQueue(): Promise<{ synced: number; failed: number }> {
           headers: {
             "Content-Type": "application/json",
             ...(item.estateId ? { "X-Estate-Id": item.estateId } : {}),
+            ...(await authHeader()),
           },
           body: item.body ? JSON.stringify(item.body) : undefined,
         },
@@ -366,6 +375,7 @@ async function runEstateQueue(apiBase: string): Promise<number> {
           headers: {
             "Content-Type": "application/json",
             ...(item.estateId ? { "X-Estate-Id": item.estateId } : {}),
+            ...(await authHeader()),
           },
           body: JSON.stringify({
             clientId: item.localId,

@@ -57,6 +57,7 @@ const MyAdsPage = lazyWithReload(() => import("@/pages/my-ads"));
 const ProfilePage = lazyWithReload(() => import("@/pages/profile"));
 const ChooseEstate = lazyWithReload(() => import("@/pages/choose-estate"));
 const PendingInvites = lazyWithReload(() => import("@/pages/pending-invites"));
+const InviteeApp = lazyWithReload(() => import("@/invitee/InviteeApp").then((m) => ({ default: m.InviteeApp })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -182,7 +183,7 @@ const SIGNED_OUT_ONLY_PATHS = new Set(["/login", "/signup"]);
 function Gated() {
   const { user, loading } = useAuth();
   const [location, navigate] = useLocation();
-  const { myEstates, myEstatesLoading, activeEstateId } = useEstate();
+  const { myEstates, myEstatesLoading, activeEstateId, activeRelationship } = useEstate();
   const qc = useQueryClient();
 
   // Checked once per sign-in, before anything else can render - an invite
@@ -223,6 +224,20 @@ function Gated() {
 
   const needsEstateChoice = myEstates.length > 1 && !myEstates.some((e) => e.id === activeEstateId);
   if (needsEstateChoice) return <ChooseEstate />;
+
+  // A farm you were invited to gets exactly the old Manager app; your own
+  // farm gets the full Owner app below.
+  if (activeRelationship === "invited") {
+    return (
+      <ErrorBoundary>
+        <DeviceGate>
+          <Suspense fallback={<PageLoader />}>
+            <InviteeApp />
+          </Suspense>
+        </DeviceGate>
+      </ErrorBoundary>
+    );
+  }
 
   return (
     <ErrorBoundary>
