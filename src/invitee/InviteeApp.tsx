@@ -26,7 +26,8 @@ const LAST_SYNC_KEY = "manager_last_sync_time";
 export function InviteeApp() {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const { myEstates, activeEstateId: activeId, setActiveEstate } = useEstate();
+  const { myEstates, activeEstateId: activeId, setActiveEstate, startOwnFarmSetup } = useEstate();
+  const hasOwnFarm = myEstates.some((e) => e.relationship === "own");
   const activeEstateId = activeId != null ? String(activeId) : null;
   const [screen, setScreen] = useState<Screen>("home");
   const [pendingCount, setPendingCount] = useState(0);
@@ -253,6 +254,7 @@ export function InviteeApp() {
       onExpense={() => setScreen("expense")}
       onPlan={() => setScreen("plan")}
       onExit={handleExit}
+      onSetUpOwnFarm={hasOwnFarm ? undefined : startOwnFarmSetup}
     />
   );
 }

@@ -183,7 +183,7 @@ const SIGNED_OUT_ONLY_PATHS = new Set(["/login", "/signup"]);
 function Gated() {
   const { user, loading } = useAuth();
   const [location, navigate] = useLocation();
-  const { myEstates, myEstatesLoading, activeEstateId, activeRelationship } = useEstate();
+  const { myEstates, myEstatesLoading, activeEstateId, activeRelationship, ownFarmSetup } = useEstate();
   const qc = useQueryClient();
 
   // Checked once per sign-in, before anything else can render - an invite
@@ -222,7 +222,10 @@ function Gated() {
     );
   }
 
-  const needsEstateChoice = myEstates.length > 1 && !myEstates.some((e) => e.id === activeEstateId);
+  // Skipped while setting up your own farm from invitee mode - no farm is
+  // active on purpose until the new one is created.
+  const needsEstateChoice =
+    !ownFarmSetup && myEstates.length > 1 && !myEstates.some((e) => e.id === activeEstateId);
   if (needsEstateChoice) return <ChooseEstate />;
 
   // A farm you were invited to gets exactly the old Manager app; your own
