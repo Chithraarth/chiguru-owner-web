@@ -146,7 +146,7 @@ export function EstateProvider({ children }: { children: ReactNode }) {
     }
     // The active estate changed (e.g. the previous one was deleted), so every
     // estate-scoped query is now stale — refetch all but the estate lists.
-    qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== "estates" && q.queryKey[0] !== "my-estates" });
+    qc.resetQueries({ predicate: (q) => q.queryKey[0] !== "my-estates" });
   }, [myEstates, myEstatesLoaded, activeId, ownFarmSetup, qc, setActiveId]);
 
   const setActiveEstate = useCallback(
@@ -163,11 +163,11 @@ export function EstateProvider({ children }: { children: ReactNode }) {
       } catch {
         /* ignore */
       }
-      // Every data query carries the estate via header, so switching estates must
-      // refetch everything except the estate lists themselves.
-      qc.invalidateQueries({
-        predicate: (q) => q.queryKey[0] !== "estates" && q.queryKey[0] !== "my-estates",
-      });
+      // Every data query carries the estate via header, so switching estates
+      // resets (not just refetches) everything but the /me/estates list -
+      // a refetch that fails (e.g. 404, no farm) would otherwise keep showing
+      // the previous farm's data.
+      qc.resetQueries({ predicate: (q) => q.queryKey[0] !== "my-estates" });
     },
     [qc, setActiveId],
   );
@@ -199,7 +199,7 @@ export function EstateProvider({ children }: { children: ReactNode }) {
     setOwnFarmSetup(true);
     setActiveId(null);
     setRememberedRelationship(null);
-    qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== "my-estates" });
+    qc.resetQueries({ predicate: (q) => q.queryKey[0] !== "my-estates" });
   }, [qc, setActiveId]);
 
   const resetEstateChoice = useCallback(() => {
@@ -221,7 +221,7 @@ export function EstateProvider({ children }: { children: ReactNode }) {
     function onStorage(e: StorageEvent) {
       if (e.key === ACTIVE_ESTATE_KEY) {
         setActiveId(e.newValue ? Number(e.newValue) : null);
-        qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== "my-estates" });
+        qc.resetQueries({ predicate: (q) => q.queryKey[0] !== "my-estates" });
       } else if (e.key === OWN_FARM_SETUP_KEY) {
         setOwnFarmSetup(e.newValue === "1");
       } else if (e.key === ACTIVE_RELATIONSHIP_KEY) {
