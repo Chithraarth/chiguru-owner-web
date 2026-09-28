@@ -9,12 +9,14 @@ import { Label } from "@/components/ui/label";
 import { apiFetch, apiMutate, ApiError } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { DIAL_CODES, flagEmoji } from "@/lib/dial-codes";
+import { useEstate } from "@/lib/use-estate";
 
 interface ManagerRow {
   id: number;
   name: string;
   phone: string | null;
   email: string | null;
+  estateId: number | null;
   status: "pending" | "active" | "removed";
   createdAt: string;
   activatedAt: string | null;
@@ -28,12 +30,14 @@ export default function ManagerDevices() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const { estates } = useEstate();
   const [adding, setAdding] = useState(false);
   const [mode, setMode] = useState<ContactMode>("phone");
   const [name, setName] = useState("");
   const [dialCode, setDialCode] = useState("+91");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [estateId, setEstateId] = useState<number | "">("");
 
   const { data: managers = [], isLoading } = useQuery<ManagerRow[]>({
     queryKey: ["managers"],
@@ -44,6 +48,7 @@ export default function ManagerDevices() {
     mutationFn: () =>
       apiMutate<ManagerRow>("POST", "/managers", {
         name: name.trim(),
+        estateId,
         ...(mode === "phone" ? { phone: `${dialCode}${phone.trim()}` } : { email: email.trim() }),
       }),
     onSuccess: () => {
@@ -52,6 +57,7 @@ export default function ManagerDevices() {
       setName("");
       setPhone("");
       setEmail("");
+      setEstateId(estates.length === 1 ? estates[0].id : "");
       toast({
         title: "Invitee added",
         description:
@@ -79,7 +85,8 @@ export default function ManagerDevices() {
   const visible = managers.filter((m) => m.status !== "removed");
   const activeCount = managers.filter((m) => m.status === "active").length;
   const isGated = addManager.isError && addManager.error instanceof ApiError && addManager.error.body?.code === "NO_SEATS_AVAILABLE";
-  const canSubmit = name.trim() && (mode === "phone" ? phone.trim() : email.trim());
+  const canSubmit = name.trim() && estateId !== "" && (mode === "phone" ? phone.trim() : email.trim());
+  const estateName = (id: number | null) => (id != null ? estates.find((e) => e.id === id)?.farmName ?? null : null);
 
   return (
     <PageShell title="Invitees" back="/">
@@ -116,6 +123,9 @@ export default function ManagerDevices() {
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-gray-900 truncate">{m.name}</p>
                       <p className="text-xs text-gray-500">{m.phone ?? m.email}</p>
+                      {estateName(m.estateId) && (
+                        <p className="text-xs text-gray-400">{estateName(m.estateId)}</p>
+                      )}
                       <p className="text-xs mt-0.5">
                         {m.status === "active" ? (
                           <span className="text-primary font-medium">Active — signed in</span>
@@ -162,6 +172,24 @@ export default function ManagerDevices() {
                   <Label className="text-xs text-gray-500">Their name</Label>
                   <Input value={name} onChange={(e) => setName(e.target.value)} className="rounded-xl h-11 mt-1" placeholder="e.g. Ramesh" />
                 </div>
+
+                {estates.length > 1 && (
+                  <div>
+                    <Label className="text-xs text-gray-500">Which farm is this for?</Label>
+                    <select
+                      value={estateId}
+                      onChange={(e) => setEstateId(e.target.value ? Number(e.target.value) : "")}
+                      className="w-full rounded-xl h-11 border border-input bg-transparent px-3 text-sm mt-1"
+                    >
+                      <option value="">Select a farm</option>
+                      {estates.map((e) => (
+                        <option key={e.id} value={e.id}>
+                          {e.farmName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div className="flex gap-2">
                   <button
@@ -239,7 +267,10 @@ export default function ManagerDevices() {
               <Button
                 variant="outline"
                 className="w-full h-12 rounded-xl border-primary/30 text-primary"
-                onClick={() => setAdding(true)}
+                onClick={() => {
+                  setEstateId(estates.length === 1 ? estates[0].id : "");
+                  setAdding(true);
+                }}
               >
                 <UserPlus className="h-4 w-4 mr-2" /> Invite someone
               </Button>

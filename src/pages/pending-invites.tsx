@@ -7,6 +7,8 @@ interface PendingInvite {
   id: number;
   name: string;
   ownerName: string | null;
+  ownerEmail: string | null;
+  ownerPhone: string | null;
   farmName: string | null;
   createdAt: string;
 }
@@ -71,10 +73,15 @@ export default function PendingInvites({ onDone }: { onDone: () => void }) {
                     <Users className="h-4 w-4 text-primary" />
                   </div>
                   <div>
-                    <p className="font-semibold text-gray-900">{invite.ownerName ?? "Someone"} invited you</p>
+                    <p className="font-semibold text-gray-900">
+                      {invite.ownerName ?? invite.ownerEmail ?? invite.ownerPhone ?? "Someone"} invited you
+                    </p>
                     <p className="text-xs text-gray-500">
                       {invite.farmName ? `To help manage "${invite.farmName}"` : "To help manage their farm"}
                     </p>
+                    {invite.ownerName && (invite.ownerEmail || invite.ownerPhone) && (
+                      <p className="text-xs text-gray-400 mt-0.5">{invite.ownerEmail ?? invite.ownerPhone}</p>
+                    )}
                   </div>
                 </div>
                 <div className="flex gap-2">

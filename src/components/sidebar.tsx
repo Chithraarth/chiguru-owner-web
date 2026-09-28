@@ -42,8 +42,11 @@ export function Sidebar() {
   const [location] = useLocation();
   const { t } = useT();
   const { user } = useAuth();
-  const { estates } = useEstate();
+  const { estates, activeEstateId, setActiveEstate, myEstates } = useEstate();
   const [accountOpen, setAccountOpen] = useState(false);
+  const [estateSwitcherOpen, setEstateSwitcherOpen] = useState(false);
+  const ownEstates = myEstates.filter((e) => e.relationship === "own");
+  const invitedEstates = myEstates.filter((e) => e.relationship === "invited");
 
   function isActive(href: string) {
     return href === "/" ? location === "/" : location === href || location.startsWith(href + "/");
@@ -99,6 +102,72 @@ export function Sidebar() {
               <p className="px-3 mt-1 text-xs text-primary-foreground/50">
                 {estates.length} {estates.length === 1 ? "estate" : "estates"}
               </p>
+            )}
+            {myEstates.length > 1 && (
+              <div className="mt-1">
+                <button
+                  onClick={() => setEstateSwitcherOpen((v) => !v)}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium text-primary-foreground/70 hover:bg-white/10 hover:text-white transition-colors"
+                  aria-expanded={estateSwitcherOpen}
+                >
+                  <span className="truncate">Switch farm</span>
+                  <ChevronDown className={cn("h-3.5 w-3.5 transition-transform shrink-0", estateSwitcherOpen && "rotate-180")} />
+                </button>
+                {estateSwitcherOpen && (
+                  <div className="space-y-2 mt-1">
+                    {ownEstates.length > 0 && (
+                      <div>
+                        <p className="px-3 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground/40 mb-0.5">
+                          My farms
+                        </p>
+                        {ownEstates.map((e) => (
+                          <button
+                            key={e.id}
+                            onClick={() => {
+                              setActiveEstate(e.id);
+                              setEstateSwitcherOpen(false);
+                            }}
+                            className={cn(
+                              "w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm text-left transition-colors",
+                              e.id === activeEstateId
+                                ? "bg-white/15 text-white font-medium"
+                                : "text-primary-foreground/70 hover:bg-white/10 hover:text-white",
+                            )}
+                          >
+                            <span className="truncate">{e.farmName}</span>
+                            {e.id === activeEstateId && <span>✓</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {invitedEstates.length > 0 && (
+                      <div>
+                        <p className="px-3 text-[10px] font-semibold uppercase tracking-wide text-primary-foreground/40 mb-0.5">
+                          Invited to
+                        </p>
+                        {invitedEstates.map((e) => (
+                          <button
+                            key={e.id}
+                            onClick={() => {
+                              setActiveEstate(e.id);
+                              setEstateSwitcherOpen(false);
+                            }}
+                            className={cn(
+                              "w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm text-left transition-colors",
+                              e.id === activeEstateId
+                                ? "bg-white/15 text-white font-medium"
+                                : "text-primary-foreground/70 hover:bg-white/10 hover:text-white",
+                            )}
+                          >
+                            <span className="truncate">{e.farmName}</span>
+                            {e.id === activeEstateId && <span>✓</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
