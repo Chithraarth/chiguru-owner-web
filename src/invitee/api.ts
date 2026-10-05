@@ -1,5 +1,6 @@
 import { getIdToken } from "@/lib/firebase";
 import { apiUrl as ownerApiUrl, getActiveEstateId as ownerActiveEstateId } from "@/lib/api";
+import { isGateCode, promptAskOwner, type GateBody } from "@/lib/gate-prompts";
 
 // API client for the invitee screens (ported from chiguru-manager-web). Same
 // signed-in user and the same active estate as the rest of the Owner app, so
@@ -43,6 +44,22 @@ export async function estateHeaders(extra?: HeadersInit): Promise<HeadersInit> {
   return withAuthHeaders({ "Content-Type": "application/json", ...(extra ?? {}) });
 }
 
+/**
+ * The owner's plan or wallet refused this action - only the owner can fix
+ * that, so say so instead of a generic error. Returns true when it was one.
+ */
+export function reportGateText(text: string): boolean {
+  let body: GateBody | null = null;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    return false;
+  }
+  if (!isGateCode(body?.code)) return false;
+  promptAskOwner(body);
+  return true;
+}
+
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -61,6 +78,7 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
   }
   if (!res.ok) {
     const text = await res.text().catch(() => "Unknown error");
+    reportGateText(text);
     throw new Error(`API ${path} → ${res.status}: ${text}`);
   }
   if (res.status === 204) return undefined as T;

@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { apiFetch, apiPost, apiUrl, estateHeaders, getActiveEstateId, checkManagerSession } from "@/invitee/api";
+import { apiFetch, apiPost, apiUrl, estateHeaders, getActiveEstateId, checkManagerSession, reportGateText } from "@/invitee/api";
 import { enqueueSync } from "@/invitee/offline-db";
 import { useToast } from "@/hooks/use-toast";
 import type { Pairing } from "@/invitee/pairing";
@@ -289,7 +289,10 @@ export function AttendanceScreen({
           body: JSON.stringify({ imageBase64: dataUrl }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "AI failed");
+        if (!res.ok) {
+          if (reportGateText(JSON.stringify(data))) return;
+          throw new Error(data.error || "AI failed");
+        }
         const count = Math.max(0, Math.round(Number(data.count) || 0));
         const unmarked = activeWorkers.filter((w) => !markedIds.has(w.id));
         const toSelect = unmarked.slice(0, count);

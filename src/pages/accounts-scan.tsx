@@ -5,7 +5,7 @@ import {
   AlertCircle, Loader2, Sparkles,
 } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
-import { apiMutate } from "@/lib/api";
+import { apiMutate, isGateError } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 import { useToast } from "@/hooks/use-toast";
 
@@ -132,8 +132,9 @@ export default function AccountsScan() {
       resetReviewState();
       setResult(data);
       setPhase("results");
-    } catch {
-      toast({ title: t("scan.noEntries"), variant: "destructive" });
+    } catch (err) {
+      // The plan/wallet prompt already explained a refusal.
+      if (!isGateError(err)) toast({ title: t("scan.noEntries"), variant: "destructive" });
       setPhase("preview");
     }
   }

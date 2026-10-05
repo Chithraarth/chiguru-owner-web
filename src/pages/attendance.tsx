@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { WorkerNameInput } from "@/components/worker-name-input";
 import { FaceAttendance } from "@/components/face-attendance";
 import { SelectOrType } from "@/components/select-or-type";
-import { apiFetch, apiMutate, apiUrl, estateHeaders } from "@/lib/api";
+import { apiFetch, apiMutate, apiUrl, estateHeaders, handleGateBody } from "@/lib/api";
 import { compressForAI, compressForRecord, fileToDataUrl } from "@/lib/photo";
 import { cacheMedia } from "@/lib/offline-db";
 import { useToast } from "@/hooks/use-toast";
@@ -352,7 +352,10 @@ export default function AttendancePage() {
         body: JSON.stringify({ imageBase64: dataUrl }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "AI failed");
+      if (!res.ok) {
+        if (handleGateBody(res.status, data)) return;
+        throw new Error(data.error || "AI failed");
+      }
       const count: number = data.count ?? 0;
       setAiResult({ count, confidence: data.confidence, notes: data.notes, imagePreview: dataUrl });
       // Keep a local copy of the headcount photo (pruned yearly). Server keeps the original.

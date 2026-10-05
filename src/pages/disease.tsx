@@ -7,7 +7,7 @@ import {
 import { PageShell } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { apiFetch, apiUrl } from "@/lib/api";
+import { apiFetch, apiUrl, isGateError } from "@/lib/api";
 import { compressForAI, fileToDataUrl } from "@/lib/photo";
 import { useToast } from "@/hooks/use-toast";
 import { AiDisclaimer } from "@/components/ai-disclaimer";
@@ -183,7 +183,8 @@ export default function DiseasePage() {
         body: JSON.stringify({ imageBase64, cropType: selectedCrop || undefined }),
       });
       setResult(data);
-    } catch {
+    } catch (err) {
+      if (isGateError(err)) return; // the plan/wallet prompt already explained it
       toast({ title: "Analysis failed", description: "Please try again with a clearer photo.", variant: "destructive" });
     } finally {
       setLoading(false);
