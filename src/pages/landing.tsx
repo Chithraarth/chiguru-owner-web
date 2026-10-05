@@ -337,7 +337,7 @@ const LANDING_HTML = String.raw`
           </div>
           <div class="testi-card testi-card-marquee">
             <div class="testi-stars">★★★★★</div>
-            <div class="testi-quote">"My manager marks attendance every morning even when I'm away at the mandi."</div>
+            <div class="testi-quote">"My manager marks attendance every morning even when I'm away at the market."</div>
             <div class="testi-who"><span class="testi-avatar" style="background:#6E56CF;">F</span><div><div class="testi-name">Farida Banu</div><div class="testi-role">Vegetable farmer, Belagavi</div></div></div>
           </div>
           <div class="testi-card testi-card-marquee">
@@ -352,7 +352,7 @@ const LANDING_HTML = String.raw`
           </div>
           <div class="testi-card testi-card-marquee" aria-hidden="true">
             <div class="testi-stars">★★★★★</div>
-            <div class="testi-quote">"My manager marks attendance every morning even when I'm away at the mandi."</div>
+            <div class="testi-quote">"My manager marks attendance every morning even when I'm away at the market."</div>
             <div class="testi-who"><span class="testi-avatar" style="background:#6E56CF;">F</span><div><div class="testi-name">Farida Banu</div><div class="testi-role">Vegetable farmer, Belagavi</div></div></div>
           </div>
           <div class="testi-card testi-card-marquee" aria-hidden="true">

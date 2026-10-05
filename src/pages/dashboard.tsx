@@ -5,7 +5,7 @@ import {
   Leaf, UserCheck, Camera,
   MapPin, Plus, BotMessageSquare, ScanLine, ShoppingCart,
   Stethoscope, Handshake, LineChart, ArrowUpRight,
-  RefreshCw, ChevronDown, ChevronUp, BookOpen, Store,
+  RefreshCw, ChevronDown, ChevronUp, BookOpen, Store, TrendingUp,
   Tractor, Wrench, Users, ChevronRight, Check,
   CalendarCheck, Circle, CheckCircle2,
 } from "lucide-react";
@@ -90,7 +90,7 @@ const MARKET_SETUP = [
   { href: "/workers?tab=rental", icon: Tractor, chip: "bg-[#E4F2FB] text-[#4FA8D8]", title: "Rent Machines", desc: "Tractors, JCBs & more" },
   { href: "/workers?tab=job", icon: Handshake, chip: "bg-[#E4F2FB] text-[#4FA8D8]", title: "Find Workers", desc: "Labourers for hire" },
   { href: "/shop", icon: ShoppingCart, chip: "bg-[#FBEEDD] text-[#D69A4F]", title: "Shop", desc: "Inputs & tools" },
-  { href: "/marketplace", icon: Store, chip: "bg-[#E0F5E9] text-[#4FAE72]", title: "Market", desc: "Ads & mandi rates" },
+  { href: "/marketplace", icon: Store, chip: "bg-[#E0F5E9] text-[#4FAE72]", title: "Market", desc: "Ads & market rates" },
   { href: "/sync-log", icon: RefreshCw, chip: "bg-[#EAEAEA] text-[#6B6B6B]", title: "Sync & Settings", desc: "Data & account" },
 ];
 
@@ -215,7 +215,7 @@ export default function Dashboard() {
             aria-label="Market Prices"
             className="flex flex-col items-center justify-center px-1.5 py-0.5 rounded-lg hover:bg-foreground/5 active:bg-foreground/5 transition-colors"
           >
-            <Store className="h-5 w-5" />
+            <TrendingUp className="h-5 w-5" />
             <span className="text-[9px] font-semibold leading-none mt-0.5">Market</span>
           </button>
         </Link>
