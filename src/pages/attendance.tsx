@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import {
   Loader2, Plus, X, Banknote, Check, Calendar,
-  Camera, Sparkles, Users, TrendingDown, Wallet, FileText, CreditCard, ScanFace, Trash2, UserMinus
+  Camera, Sparkles, Users, TrendingDown, Wallet, FileText, CreditCard, ScanFace, Trash2, UserMinus, UserPlus
 } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
@@ -87,6 +87,11 @@ export default function AttendancePage() {
   const [loanProofPhoto, setLoanProofPhoto] = useState<string | null>(null);
   const [viewProof, setViewProof] = useState<ProofLoan | null>(null);
   const [selectedWorkers, setSelectedWorkers] = useState<Set<number>>(new Set());
+  // "Add worker": workers belong to the whole farm, so one added here also
+  // shows in every other group's list.
+  const [addingWorkerOpen, setAddingWorkerOpen] = useState(false);
+  const [newWorker, setNewWorker] = useState({ name: "", phone: "", wage: "" });
+  const [savingWorker, setSavingWorker] = useState(false);
   const [confirmRemoveWorker, setConfirmRemoveWorker] = useState<Worker | null>(null);
   const [hours, setHours] = useState("8");
   const [otHours, setOtHours] = useState("0");
@@ -119,6 +124,38 @@ export default function AttendancePage() {
   const [checkingOut, setCheckingOut] = useState(false);
   const { toast } = useToast();
   const qc = useQueryClient();
+
+  async function saveNewWorker() {
+    const name = newWorker.name.trim();
+    if (!name || savingWorker) return;
+    if (workers.some((w) => w.isActive && w.name.trim().toLowerCase() === name.toLowerCase())) {
+      toast({ title: `${name} is already one of your workers`, variant: "destructive" });
+      return;
+    }
+    setSavingWorker(true);
+    try {
+      const w = await apiMutate<{ id: number }>("POST", "/workers", {
+        name,
+        isActive: true,
+        ...(newWorker.phone.trim() ? { phone: newWorker.phone.trim() } : {}),
+        ...(Number(newWorker.wage) > 0 ? { wageRate: String(Number(newWorker.wage)) } : {}),
+      });
+      setNewWorker({ name: "", phone: "", wage: "" });
+      setAddingWorkerOpen(false);
+      await qc.invalidateQueries({ queryKey: ["workers"] });
+      if (w) {
+        // They're usually being added because they came today - tick them.
+        setSelectedWorkers((prev) => new Set(prev).add(w.id));
+        toast({ title: `${name} added` });
+      } else {
+        toast({ title: "Saved offline", description: `${name} will be added when you're back online.` });
+      }
+    } catch {
+      toast({ title: "Could not add worker", description: "Please try again.", variant: "destructive" });
+    } finally {
+      setSavingWorker(false);
+    }
+  }
 
   const { data: group } = useQuery<WorkGroup>({
     queryKey: ["work-group", groupId],
@@ -1470,8 +1507,48 @@ export default function AttendancePage() {
               <p className="text-[11px] text-gray-400 -mt-1 mb-2">
                 Already-marked workers can be selected again to update their day — e.g. add picked kg or overtime after work is done. The new values replace the old ones.
               </p>
+              <div className="mb-2">
+                {addingWorkerOpen ? (
+                  <div className="rounded-xl border border-gray-200 bg-white p-3 space-y-2">
+                    <p className="text-sm font-semibold text-gray-800">New worker</p>
+                    <Input
+                      autoFocus
+                      placeholder="Name *"
+                      value={newWorker.name}
+                      onChange={(e) => setNewWorker((v) => ({ ...v, name: e.target.value }))}
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        type="tel"
+                        placeholder="Phone (optional)"
+                        value={newWorker.phone}
+                        onChange={(e) => setNewWorker((v) => ({ ...v, phone: e.target.value }))}
+                      />
+                      <Input
+                        type="number"
+                        min="0"
+                        placeholder="Daily wage ₹ (optional)"
+                        value={newWorker.wage}
+                        onChange={(e) => setNewWorker((v) => ({ ...v, wage: e.target.value }))}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={() => void saveNewWorker()} disabled={savingWorker || !newWorker.name.trim()}>
+                        {savingWorker ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save worker"}
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => setAddingWorkerOpen(false)} disabled={savingWorker}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setAddingWorkerOpen(true)}>
+                    <UserPlus className="w-4 h-4" /> Add worker
+                  </Button>
+                )}
+              </div>
               {activeWorkers.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-3">No workers added yet</p>
+                <p className="text-sm text-gray-400 text-center py-3">No workers yet - add your first one above</p>
               ) : (
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   {activeWorkers.map((w) => {
