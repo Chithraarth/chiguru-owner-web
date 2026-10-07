@@ -7,7 +7,7 @@ import {
 import { PageShell } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { apiFetch, apiUrl } from "@/lib/api";
+import { apiFetch, apiUrl, isGateError } from "@/lib/api";
 import { compressForAI, fileToDataUrl } from "@/lib/photo";
 import { useToast } from "@/hooks/use-toast";
 import { AiDisclaimer } from "@/components/ai-disclaimer";
@@ -183,7 +183,8 @@ export default function DiseasePage() {
         body: JSON.stringify({ imageBase64, cropType: selectedCrop || undefined }),
       });
       setResult(data);
-    } catch {
+    } catch (err) {
+      if (isGateError(err)) return; // the plan/wallet prompt already explained it
       toast({ title: "Analysis failed", description: "Please try again with a clearer photo.", variant: "destructive" });
     } finally {
       setLoading(false);
@@ -605,7 +606,7 @@ export default function DiseasePage() {
               <div className="bg-accent/10 rounded-lg p-2"><Stethoscope className="h-5 w-5 text-accent" /></div>
               <div className="flex-1 text-left">
                 <p className="text-sm font-semibold text-accent">Want a second opinion?</p>
-                <p className="text-xs text-accent">Consult an agriculture doctor to confirm & improve yield</p>
+                <p className="text-xs text-accent">Call an agriculture doctor near you to confirm</p>
               </div>
               <ChevronRight className="h-4 w-4 text-accent" />
             </button>

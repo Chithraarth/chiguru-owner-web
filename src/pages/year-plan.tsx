@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { apiFetch, apiMutate, ApiError } from "@/lib/api";
+import { apiFetch, apiMutate, ApiError, isGateError } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useT } from "@/lib/i18n";
 import { useSubScreenHistory } from "@/hooks/use-sub-screen-history";
@@ -185,6 +185,7 @@ export default function YearPlan() {
       toast({ title: t("yp.genDone") });
     },
     onError: (err) => {
+      if (isGateError(err)) return; // the plan/wallet prompt already explained it
       if (err instanceof ApiError && err.status === 400 && err.message.includes("no_crops")) {
         toast({ title: t("yp.noCrops"), variant: "destructive" });
       } else {

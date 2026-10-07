@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   UserCircle2, ShieldCheck, Copy, Check, LogOut, Loader2,
-  CloudUpload, CloudOff, Phone, RotateCcw,
+  CloudUpload, CloudOff, Phone, RotateCcw, Trash2,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { signOutUser } from "@/lib/firebase";
@@ -15,6 +15,14 @@ import { useToast } from "@/hooks/use-toast";
 import { apiFetch, apiMutate, apiUrl, estateHeaders } from "@/lib/api";
 import { useEstate } from "@/lib/use-estate";
 import { useT } from "@/lib/i18n";
+import { getOwnerKey } from "@/pages/workers";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+
+interface MySubscription {
+  subscription: { status: string; provider: string; autoRenew: boolean } | null;
+}
 
 interface LinkedFarm {
   id: number;
@@ -36,6 +44,41 @@ export default function ProfilePage() {
     queryKey: ["farm-profile"],
     queryFn: () => apiFetch("/farm/profile"),
   });
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [storeRenewal, setStoreRenewal] = useState<string | null>(null);
+
+  async function openDeleteDialog() {
+    // Apple and Google keep charging a store subscription until the
+    // subscriber cancels it there - deleting the account can't stop that.
+    const sub = (await apiFetch<MySubscription>("/subscriptions/me").catch(() => null))?.subscription;
+    const renews = !!sub && sub.autoRenew && (sub.status === "ACTIVE" || sub.status === "GRACE_PERIOD");
+    setStoreRenewal(
+      renews && sub!.provider === "APPLE" ? "the App Store" : renews && sub!.provider === "GOOGLE_PLAY" ? "Google Play" : null,
+    );
+    setDeleteConfirm("");
+    setDeleteOpen(true);
+  }
+
+  async function deleteAccount() {
+    setDeleting(true);
+    try {
+      // Never queued offline - the person must know it really happened. The
+      // owner key lets the server remove this browser's classified ads too.
+      const ownerKey = getOwnerKey();
+      await apiFetch("/owners/me", { method: "DELETE", headers: ownerKey ? { "X-Owner-Key": ownerKey } : undefined });
+      setDeleteOpen(false);
+      await signOutUser();
+      toast({ title: "Account deleted", description: "Your Chiguru account and all of its data have been permanently deleted." });
+      navigate("/");
+    } catch {
+      toast({ title: "Couldn't delete your account", description: "Check your internet connection and try again.", variant: "destructive" });
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   const [phone, setPhone] = useState("");
   const [altPhone, setAltPhone] = useState("");
   const [phoneDirty, setPhoneDirty] = useState(false);
@@ -339,7 +382,71 @@ export default function ProfilePage() {
           </div>
         </section>
         )}
+
+        {/* Delete account */}
+        {user && (
+          <section className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl p-2.5 flex-shrink-0 bg-red-50 text-red-600">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-gray-800">Delete account</p>
+                <p className="text-sm text-gray-500 mt-0.5">Permanently delete your account and all of its data.</p>
+                <button
+                  onClick={() => void openDeleteDialog()}
+                  className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl h-11 border border-red-200 text-red-600 font-medium hover:bg-red-50"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete my account
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
       </div>
+
+      <Dialog open={deleteOpen} onOpenChange={(open) => !deleting && setDeleteOpen(open)}>
+        <DialogContent className="rounded-2xl max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete your account?</DialogTitle>
+            <DialogDescription>
+              This permanently deletes your account and everything in it: all your farms, workers, attendance,
+              accounts, photos, ads, invitees and any wallet balance. This can't be undone.
+            </DialogDescription>
+          </DialogHeader>
+          {storeRenewal && (
+            <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
+              Your Chiguru plan renews through {storeRenewal}. Deleting your account does not stop those charges -
+              cancel the subscription in {storeRenewal} first.
+            </div>
+          )}
+          <div className="space-y-2">
+            <Label htmlFor="delete-confirm" className="text-sm">Type DELETE to confirm</Label>
+            <Input
+              id="delete-confirm"
+              value={deleteConfirm}
+              onChange={(e) => setDeleteConfirm(e.target.value)}
+              placeholder="DELETE"
+              autoCapitalize="characters"
+              className="rounded-xl h-11"
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" className="rounded-xl" onClick={() => setDeleteOpen(false)} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              className="rounded-xl"
+              onClick={() => void deleteAccount()}
+              disabled={deleting || deleteConfirm.trim().toUpperCase() !== "DELETE"}
+            >
+              {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Delete forever"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageShell>
   );
 }

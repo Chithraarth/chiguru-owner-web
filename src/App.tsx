@@ -40,7 +40,6 @@ const AgriAI = lazyWithReload(() => import("@/pages/agri-ai"));
 const Disease = lazyWithReload(() => import("@/pages/disease"));
 const Shop = lazyWithReload(() => import("@/pages/shop"));
 const DailyUpdate = lazyWithReload(() => import("@/pages/daily-update"));
-const NurseryAdmin = lazyWithReload(() => import("@/pages/nursery-admin"));
 const NurseryShop = lazyWithReload(() => import("@/pages/nursery"));
 const AgriDoctor = lazyWithReload(() => import("@/pages/agri-doctor"));
 const Subscription = lazyWithReload(() => import("@/pages/subscription"));
@@ -133,7 +132,6 @@ function Router() {
         <Route path="/daily-update" component={DailyUpdate} />
         <Route path="/bin" component={BinPage} />
         <Route path="/my-ads" component={MyAdsPage} />
-        <Route path="/nursery-admin" component={NurseryAdmin} />
         <Route path="/nursery" component={NurseryShop} />
         <Route path="/agri-doctor" component={AgriDoctor} />
         <Route path="/subscription" component={Subscription} />

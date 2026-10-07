@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { apiFetch, apiMutate, apiUrl, estateHeaders } from "@/lib/api";
+import { apiFetch, apiMutate, apiUrl, estateHeaders, handleGateBody } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { fmtMoney, curSymbol } from "@/lib/currency";
 
@@ -130,7 +130,10 @@ export default function WorkGroups() {
           body: JSON.stringify({ imageBase64: dataUrl }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "AI failed");
+        if (!res.ok) {
+          if (handleGateBody(res.status, data)) return;
+          throw new Error(data.error || "AI failed");
+        }
         const count: number = data.count ?? 0;
         setValue("expectedWorkers", String(count));
         toast({ title: `AI counted ${count} worker${count !== 1 ? "s" : ""} in the photo` });

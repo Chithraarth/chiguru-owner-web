@@ -213,7 +213,7 @@ export default function MandiPrices() {
             <div className="min-w-0 flex-1">
               <h2 className="font-bold">Today's market prices</h2>
               <p className="text-[12px] text-white/80 leading-snug">
-                Found automatically every morning from government mandi rates, curing works &amp; buyer websites for your district
+                Found automatically every morning from government market rates, curing works &amp; buyer websites for your district
               </p>
             </div>
           </div>
@@ -296,7 +296,7 @@ export default function MandiPrices() {
             </div>
             <p className="font-semibold text-gray-700">Fetching today's prices…</p>
             <p className="text-sm mt-1 max-w-[260px] mx-auto leading-snug">
-              Checking government mandi rates, curing works and local buyers near you. This takes a minute or two.
+              Checking government market rates, curing works and local buyers near you. This takes a minute or two.
             </p>
           </div>
         ) : status === "error" && prices.length === 0 ? (
@@ -334,7 +334,8 @@ export default function MandiPrices() {
                         {isBest && <Trophy className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />}
                         <p className="font-semibold text-sm text-gray-800 break-words">{r.sellerName}</p>
                         <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${SELLER_TYPE_COLORS[r.sellerType] ?? "bg-gray-100 text-gray-600"}`}>
-                          {r.sellerType}
+                          {/* The price source calls a government market a "Mandi". */}
+                          {r.sellerType === "Mandi" ? "Market" : r.sellerType}
                         </span>
                       </div>
                       <div className="mt-1 space-y-0.5">

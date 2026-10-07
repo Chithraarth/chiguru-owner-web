@@ -1,6 +1,7 @@
 import { enqueueSync, fetchWithTimeout, looksLikeOurApi } from "./offline-db";
 import { getIdToken } from "./firebase";
 import { ACTIVE_ESTATE_KEY, getCurrentEstateId } from "./active-estate";
+import { isGateCode, promptWalletRecharge, type GateBody } from "./gate-prompts";
 
 export { ACTIVE_ESTATE_KEY };
 
@@ -53,8 +54,8 @@ export async function estateHeaders(extra?: HeadersInit): Promise<HeadersInit> {
 export class ApiError extends Error {
   status: number;
   /** Parsed JSON error body (e.g. { message, code }), when the server sent one. */
-  body: { message?: string; code?: string } | null;
-  constructor(status: number, message: string, body: { message?: string; code?: string } | null = null) {
+  body: GateBody | null;
+  constructor(status: number, message: string, body: GateBody | null = null) {
     super(message);
     this.name = "ApiError";
     this.status = status;
@@ -84,14 +85,41 @@ function redirectToSubscription() {
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
-function handleErrorBody(status: number, body: { message?: string; code?: string } | null) {
+function openWallet() {
+  // The wallet lives on the Subscription page.
+  window.history.pushState(window.history.state, "", `${BASE}/subscription`);
+  window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
+/**
+ * Plan and wallet refusals, handled once for every page: no plan sends the
+ * owner to Subscription; too little wallet credit for an AI feature offers a
+ * "Recharge wallet" button. Returns true when it was one of those, so a page
+ * making its own fetch() can skip its generic error message.
+ */
+export function handleGateBody(status: number, body: GateBody | null): boolean {
   if (status === 403 && body?.code === "SUBSCRIPTION_REQUIRED") {
     redirectToSubscription();
+    return true;
   }
+  if (status === 402 && body?.code === "WALLET_EMPTY") {
+    promptWalletRecharge(body, openWallet);
+    return true;
+  }
+  return false;
+}
+
+/** The plan/wallet prompt already explained this error - don't show another. */
+export function isGateError(err: unknown): boolean {
+  return err instanceof ApiError && isGateCode(err.body?.code);
+}
+
+function handleErrorBody(status: number, body: GateBody | null) {
+  handleGateBody(status, body);
 }
 
 /** Best-effort JSON parse of an error response body — never throws. */
-function parseErrorBody(text: string): { message?: string; code?: string } | null {
+function parseErrorBody(text: string): GateBody | null {
   try {
     const parsed = JSON.parse(text);
     return parsed && typeof parsed === "object" ? parsed : null;

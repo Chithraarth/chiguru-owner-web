@@ -4,7 +4,7 @@ import { Send, Bot, User, Plus, Trash2, MessageSquare, Loader2, Sprout } from "l
 import ReactMarkdown from "react-markdown";
 import { PageShell } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
-import { apiFetch, apiUrl, estateHeaders } from "@/lib/api";
+import { apiFetch, apiUrl, estateHeaders, handleGateBody } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { AiDisclaimer } from "@/components/ai-disclaimer";
 import { useSubScreenHistory } from "@/hooks/use-sub-screen-history";
@@ -126,6 +126,13 @@ export default function AgriAI() {
         body: JSON.stringify({ content: text }),
       });
 
+      if (!response.ok) {
+        // Refusals (no plan, empty wallet, ...) come back as plain JSON, not a stream.
+        const body = await response.json().catch(() => null);
+        if (!handleGateBody(response.status, body)) toast({ title: "Failed to send message", variant: "destructive" });
+        await qc.invalidateQueries({ queryKey: ["openai-conversation", convId] });
+        return;
+      }
       if (!response.body) throw new Error("No stream");
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
