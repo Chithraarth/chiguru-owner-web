@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { apiFetch, apiMutate, ApiError } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useSubScreenHistory } from "@/hooks/use-sub-screen-history";
+import { useIsAdmin } from "@/lib/use-is-admin";
 import { fmtMoney, curSymbol } from "@/lib/currency";
 import { compressForAI, fileToDataUrl } from "@/lib/photo";
 
@@ -104,7 +105,6 @@ type View =
 
 export default function AgriDoctor() {
   const [view, setView] = useState<View>({ name: "directory" });
-  const [topupOpen, setTopupOpen] = useState(false);
   const qc = useQueryClient();
   const { toast } = useToast();
 
@@ -303,13 +303,17 @@ export default function AgriDoctor() {
           <div className="flex items-center gap-2.5">
             <div className="bg-amber-100 rounded-xl p-2"><Wallet className="h-5 w-5 text-amber-600" /></div>
             <div>
-              <p className="text-xs text-gray-400">Consultation wallet</p>
+              <p className="text-xs text-gray-400">Wallet balance</p>
               <p className="text-lg font-bold text-gray-900">{inr(balance)}</p>
             </div>
           </div>
-          <Button size="sm" variant="outline" onClick={() => setTopupOpen(true)}>
-            <Plus className="h-4 w-4 mr-1" /> Add Money
-          </Button>
+          {/* Consultations are paid from the Chiguru wallet, recharged only
+              through a real payment (the wallet lives on the Subscription page). */}
+          <Link href="/subscription">
+            <Button size="sm" variant="outline">
+              <Plus className="h-4 w-4 mr-1" /> Recharge
+            </Button>
+          </Link>
         </div>
 
         {/* Agriculture expert area — profile + earnings live inside, hidden from farmers browsing */}
@@ -365,7 +369,6 @@ export default function AgriDoctor() {
         </div>
       </div>
 
-      {topupOpen && <TopupModal onClose={() => setTopupOpen(false)} onDone={() => { setTopupOpen(false); qc.invalidateQueries({ queryKey: ["app-settings"] }); }} />}
     </PageShell>
   );
 }
@@ -375,57 +378,6 @@ function Row({ icon, label }: { icon: React.ReactNode; label: string }) {
     <div className="flex items-center gap-2.5">
       <span className="flex-shrink-0">{icon}</span>
       <span>{label}</span>
-    </div>
-  );
-}
-
-function TopupModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
-  const [amount, setAmount] = useState("");
-  const { toast } = useToast();
-  const topup = useMutation({
-    mutationFn: (amt: number) => apiMutate("POST", "/app-settings/wallet/topup", { amount: amt }),
-    onSuccess: (res) => {
-      toast(res ? { title: "Money added to wallet" } : { title: "Saved offline", description: "Your wallet will update when you're back online." });
-      onDone();
-    },
-    onError: () => toast({ title: "Top-up failed", variant: "destructive" }),
-  });
-  // Ignore the "ghost click" (~300ms after the opening tap) that would land on
-  // the fresh backdrop and close the sheet instantly, plus bubbled sheet clicks.
-  const openedAtRef = useRef(Date.now());
-  const handleBackdrop = (e: React.MouseEvent) => {
-    if (e.target !== e.currentTarget) return;
-    if (Date.now() - openedAtRef.current < 500) return;
-    onClose();
-  };
-  return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-end justify-center" onClick={handleBackdrop}>
-      <div className="bg-white rounded-t-3xl w-full max-w-md p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between">
-          <h3 className="font-bold text-gray-900">Add money to wallet</h3>
-          <button onClick={onClose}><X className="h-5 w-5 text-gray-400" /></button>
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          {[100, 200, 500].map((a) => (
-            <button key={a} onClick={() => setAmount(String(a))}
-              className={`py-2.5 rounded-xl border text-sm font-semibold ${amount === String(a) ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-600"}`}>
-              {inr(a)}
-            </button>
-          ))}
-        </div>
-        <div>
-          <Label className="text-xs text-gray-500">Or enter amount ({curSymbol()})</Label>
-          <Input type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="500" className="mt-1" />
-        </div>
-        <Button
-          className="w-full h-12 bg-primary hover:bg-primary/90"
-          disabled={topup.isPending || !Number(amount)}
-          onClick={() => topup.mutate(Number(amount))}
-        >
-          {topup.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : `Add ${amount ? inr(Number(amount)) : "money"}`}
-        </Button>
-        <p className="text-[11px] text-center text-gray-400">Demo top-up · no real payment is taken</p>
-      </div>
     </div>
   );
 }
@@ -939,6 +891,8 @@ function compressCertificate(dataUrl: string, maxW = 1200): Promise<string> {
 }
 
 function ExpertHub({ onBack, onRegister, onEarnings }: { onBack: () => void; onRegister: () => void; onEarnings: () => void }) {
+  // Earnings & payouts are handled by the Chiguru team (admins) for now.
+  const isAdmin = useIsAdmin();
   return (
     <PageShell title="Agriculture Expert" onBack={onBack}>
       <div className="p-4 space-y-4">
@@ -948,7 +902,7 @@ function ExpertHub({ onBack, onRegister, onEarnings }: { onBack: () => void; onR
           </div>
           <h2 className="text-lg font-bold">For agriculture experts</h2>
           <p className="text-primary-foreground/80 text-sm mt-1 leading-relaxed">
-            Offer paid consultations to farmers, and track and withdraw your earnings — all in one place.
+            Offer paid consultations to farmers. The Chiguru team pays your 80% share to the bank or UPI on your profile.
           </p>
         </div>
 
@@ -964,6 +918,7 @@ function ExpertHub({ onBack, onRegister, onEarnings }: { onBack: () => void; onR
           <ChevronRight className="h-4 w-4 text-gray-300" />
         </button>
 
+        {isAdmin && (
         <button
           onClick={onEarnings}
           className="w-full text-left bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3 active:bg-gray-50 transition-colors"
@@ -975,6 +930,7 @@ function ExpertHub({ onBack, onRegister, onEarnings }: { onBack: () => void; onR
           </div>
           <ChevronRight className="h-4 w-4 text-gray-300" />
         </button>
+        )}
       </div>
     </PageShell>
   );
