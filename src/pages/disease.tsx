@@ -606,7 +606,7 @@ export default function DiseasePage() {
               <div className="bg-accent/10 rounded-lg p-2"><Stethoscope className="h-5 w-5 text-accent" /></div>
               <div className="flex-1 text-left">
                 <p className="text-sm font-semibold text-accent">Want a second opinion?</p>
-                <p className="text-xs text-accent">Consult an agriculture doctor to confirm & improve yield</p>
+                <p className="text-xs text-accent">Call an agriculture doctor near you to confirm</p>
               </div>
               <ChevronRight className="h-4 w-4 text-accent" />
             </button>
