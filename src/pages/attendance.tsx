@@ -369,12 +369,38 @@ export default function AttendancePage() {
   }, [showAddForm]);
 
   function toggleWorker(wId: number) {
-    setSelectedWorkers((prev) => {
-      const next = new Set(prev);
-      if (next.has(wId)) next.delete(wId);
-      else next.add(wId);
-      return next;
-    });
+    if (selectedWorkers.has(wId)) {
+      setSelectedWorkers((prev) => {
+        const next = new Set(prev);
+        next.delete(wId);
+        return next;
+      });
+      return;
+    }
+    // Re-selecting someone already marked edits their day: start from what was
+    // saved, so saving again (e.g. just to add the crop) never wipes their kg
+    // or overtime.
+    const saved = attendance.find((a) => a.workerId === wId);
+    if (saved) {
+      const savedOt = Number(saved.overtimeHours ?? 0);
+      const savedKg = Number(saved.harvestedKg ?? 0);
+      if (savedOt > 0) {
+        setOtMode(true);
+        setOtPerWorker((m) => ({ ...m, [wId]: String(savedOt) }));
+        if (!otRate && Number(saved.overtimeRate ?? 0) > 0) setOtRate(String(Number(saved.overtimeRate)));
+      }
+      if (savedKg > 0) {
+        if (!pickMode) {
+          setPickMode(true);
+          setPickThreshold(group?.harvestThresholdKg != null ? String(Number(group.harvestThresholdKg)) : "");
+          setPickBonus(group?.harvestBonusPerKg != null ? String(Number(group.harvestBonusPerKg)) : "");
+        }
+        setPickKg((m) => ({ ...m, [wId]: String(savedKg) }));
+        if (!pickCrop && saved.harvestCrop) setPickCrop(saved.harvestCrop);
+      }
+      if (Number(saved.hoursWorked) > 0) setHours(String(Number(saved.hoursWorked)));
+    }
+    setSelectedWorkers((prev) => new Set(prev).add(wId));
   }
 
   async function handleCameraScan(file: File) {
