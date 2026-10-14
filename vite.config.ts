@@ -79,8 +79,8 @@ export default defineConfig({
         name: "Chiguru",
         short_name: "Chiguru",
         description: "Offline-first farm management for smallholder farmers",
-        theme_color: "#231F3A",
-        background_color: "#FAF9FD",
+        theme_color: "#F4B400",
+        background_color: "#FFF8E6",
         display: "standalone",
         orientation: "portrait",
         icons: [
