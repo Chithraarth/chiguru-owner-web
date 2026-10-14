@@ -13,7 +13,8 @@
 <meta property="og:url" content="https://thechiguru.com/">
 <meta property="og:image" content="https://thechiguru.com/opengraph.jpg">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="icon" type="image/png" href="/favicon.png?v=2">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" href="/favicon.png?v=3">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -118,10 +119,9 @@ a { color: var(--leaf); }
 }
 .brand { display: flex; align-items: center; gap: 10px; color: var(--sun-ink); text-decoration: none; }
 .brand-mark {
-  width: 44px; height: 44px; border-radius: 12px; overflow: hidden; flex: none;
-  border: 2px solid #FFFFFF; box-shadow: 0 2px 6px rgba(58, 42, 0, .25);
+  width: 44px; height: 44px; border-radius: 50%; background: #2F6B1F;
+  display: grid; place-items: center; flex: none;
 }
-.brand-mark img { display: block; width: 100%; height: 100%; }
 .brand-name { font-family: var(--display); font-weight: 800; font-size: 26px; }
 .nav-links { display: flex; gap: 22px; align-items: center; }
 .nav-links a { color: var(--sun-ink); text-decoration: none; font-family: var(--display); font-weight: 600; font-size: 17px; }
@@ -392,6 +392,7 @@ footer nav { display: flex; gap: 20px; flex-wrap: wrap; }
   display: grid; place-items: center; font-family: var(--display); font-weight: 800; font-size: 20px;
 }
 .join b { font-family: var(--display); font-size: 20px; display: block; line-height: 1.2; }
+.join b .as { font-style: normal; font-weight: 600; font-size: 16px; color: var(--muted); }
 .join span { color: var(--muted); font-size: 16.5px; }
 .can { display: flex; flex-wrap: wrap; gap: 8px; }
 .can span { background: var(--card); border: 2px solid var(--line); border-radius: 999px; padding: 4px 14px; font-size: 15.5px; font-weight: 600; }
@@ -447,7 +448,9 @@ footer nav { display: flex; gap: 20px; flex-wrap: wrap; }
   <div class="wrap">
     <nav class="nav" aria-label="Main">
       <a class="brand" href="#top" id="top">
-        <span class="brand-mark" aria-hidden="true"><img src="/logo.png" alt="" width="44" height="44"></span>
+        <span class="brand-mark" aria-hidden="true">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 20h10"/><path d="M12 20v-8"/><path d="M12 12C12 8 9 6 5 6c0 4 3 6 7 6Z"/><path d="M12 10c0-3 2-5 6-5 0 3-2 5-6 5Z"/></svg>
+        </span>
         <span class="brand-name">Chiguru</span>
       </a>
       <div class="nav-links">
@@ -685,7 +688,7 @@ footer nav { display: flex; gap: 20px; flex-wrap: wrap; }
           <p class="lede">You don't need your own plan or your own farm. You work on the owner's farm with their plan, from your own phone.</p>
         </div>
         <ol class="join">
-          <li><div><b>Get the invite</b><span>The owner adds you in Menu → Invitees with your mobile number or email.</span></div></li>
+          <li><div><b>Get the invite <em class="as">(as the farm's manager)</em></b><span>The owner adds you in Menu → Invitees with your mobile number or email.</span></div></li>
           <li><div><b>Install and sign in</b><span>Get Chiguru from Google Play or the App Store. Sign in with that same number and the OTP sent to it.</span></div></li>
           <li><div><b>Tap Accept</b><span>The invite is waiting on the first screen. Accept it and the farm opens, marked "Invited farm".</span></div></li>
         </ol>
