@@ -51,7 +51,11 @@ export default defineConfig({
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),
+    // The site is now only the landing page. selfDestroying ships a service
+    // worker that removes the old web app's worker (and its cached shell) from
+    // returning visitors' browsers, so they get the landing page, not the app.
     VitePWA({
+      selfDestroying: true,
       registerType: "autoUpdate",
       injectRegister: "auto",
       workbox: {
